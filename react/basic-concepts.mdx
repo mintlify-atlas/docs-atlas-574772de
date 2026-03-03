@@ -1,0 +1,412 @@
+---
+title: Basic Concepts
+description: Core concepts and terminology for TanStack Form React
+---
+
+This page introduces the basic concepts and terminology used in `@tanstack/react-form`. Familiarizing yourself with these concepts will help you better understand and work with the library.
+
+## Form Options
+
+You can customize your form by creating configuration options with the `formOptions` function. These options can be shared between multiple forms.
+
+```tsx
+interface User {
+  firstName: string
+  lastName: string
+  hobbies: Array<string>
+}
+const defaultUser: User = { firstName: '', lastName: '', hobbies: [] }
+
+const formOpts = formOptions({
+  defaultValues: defaultUser,
+})
+```
+
+## Form Instance
+
+A Form instance is an object that represents an individual form and provides methods and properties for working with the form. You create a Form instance using the `useForm` hook.
+
+```tsx
+const form = useForm({
+  defaultValues: {
+    firstName: '',
+    lastName: '',
+    hobbies: [],
+  },
+  onSubmit: async ({ value }) => {
+    // Do something with form data
+    console.log(value)
+  },
+})
+```
+
+## Field
+
+A Field represents a single form input element. Fields are created using the `form.Field` component provided by the Form instance.
+
+```tsx
+<form.Field
+  name="firstName"
+  children={(field) => (
+    <>
+      <input
+        value={field.state.value}
+        onBlur={field.handleBlur}
+        onChange={(e) => field.handleChange(e.target.value)}
+      />
+    </>
+  )}
+/>
+```
+
+<Note>
+If you run into ESLint issues with `children` as props, configure your linting rules:
+
+```json
+"rules": {
+  "react/no-children-prop": [
+    true,
+    {
+      "allowFunctions": true
+    }
+  ],
+}
+```
+</Note>
+
+## Field State
+
+Each field has its own state, which includes its current value, validation status, error messages, and other metadata.
+
+```tsx
+const {
+  value,
+  meta: { errors, isValidating },
+} = field.state
+```
+
+### Field Metadata States
+
+There are several states in the metadata that track user interaction:
+
+- **isTouched**: `true` once the user changes or blurs the field
+- **isDirty**: `true` once the field's value is changed, even if reverted to default (opposite of `isPristine`)
+- **isPristine**: `true` until the user changes the field's value (opposite of `isDirty`)
+- **isBlurred**: `true` once the field loses focus
+- **isDefaultValue**: `true` when the field's current value is the default value
+
+```tsx
+const { isTouched, isDirty, isPristine, isBlurred } = field.state.meta
+```
+
+![Field states](https://raw.githubusercontent.com/TanStack/form/main/docs/assets/field-states.png)
+
+## Understanding 'isDirty' in Different Libraries
+
+<Tabs>
+  <Tab title="Non-Persistent (RHF, Formik)">
+    A field is 'dirty' if its value differs from the default. Reverting to the default value makes it 'clean' again.
+  </Tab>
+  <Tab title="Persistent (TanStack Form)">
+    A field remains 'dirty' once changed, even if reverted to the default value. Use `isDefaultValue` flag to check if the value matches the default.
+    
+    ```tsx
+    const { isDefaultValue, isTouched } = field.state.meta
+    
+    // Re-create non-persistent dirty functionality
+    const nonPersistentIsDirty = !isDefaultValue
+    ```
+  </Tab>
+</Tabs>
+
+![Field states extended](https://raw.githubusercontent.com/TanStack/form/main/docs/assets/field-states-extended.png)
+
+## Field API
+
+The Field API is an object passed to the render prop function when creating a field. It provides methods for working with the field's state.
+
+```tsx
+<input
+  value={field.state.value}
+  onBlur={field.handleBlur}
+  onChange={(e) => field.handleChange(e.target.value)}
+/>
+```
+
+## Validation
+
+TanStack Form provides both synchronous and asynchronous validation out of the box.
+
+```tsx
+<form.Field
+  name="firstName"
+  validators={{
+    onChange: ({ value }) =>
+      !value
+        ? 'A first name is required'
+        : value.length < 3
+          ? 'First name must be at least 3 characters'
+          : undefined,
+    onChangeAsync: async ({ value }) => {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      return value.includes('error') && 'No "error" allowed in first name'
+    },
+  }}
+  children={(field) => (
+    <>
+      <input
+        value={field.state.value}
+        onBlur={field.handleBlur}
+        onChange={(e) => field.handleChange(e.target.value)}
+      />
+      {!field.state.meta.isValid && (
+        <em>{field.state.meta.errors.join(',')}</em>
+      )}
+    </>
+  )}
+/>
+```
+
+### Validation with Schema Libraries
+
+TanStack Form supports the [Standard Schema](https://github.com/standard-schema/standard-schema) specification:
+
+<Tabs>
+  <Tab title="Zod">
+    ```tsx
+    import { z } from 'zod'
+    
+    const userSchema = z.object({
+      age: z.number().gte(13, 'You must be 13 to make an account'),
+    })
+    
+    function App() {
+      const form = useForm({
+        defaultValues: {
+          age: 0,
+        },
+        validators: {
+          onChange: userSchema,
+        },
+      })
+      return (
+        <div>
+          <form.Field
+            name="age"
+            children={(field) => {
+              return <>{/* ... */}</>
+            }}
+          />
+        </div>
+      )
+    }
+    ```
+  </Tab>
+  <Tab title="Valibot">
+    ```tsx
+    import * as v from 'valibot'
+    
+    const userSchema = v.object({
+      age: v.pipe(v.number(), v.minValue(13, 'You must be 13 to make an account')),
+    })
+    
+    function App() {
+      const form = useForm({
+        defaultValues: {
+          age: 0,
+        },
+        validators: {
+          onChange: userSchema,
+        },
+      })
+      return (
+        <div>
+          <form.Field name="age" />
+        </div>
+      )
+    }
+    ```
+  </Tab>
+  <Tab title="Yup">
+    ```tsx
+    import * as yup from 'yup'
+    
+    const userSchema = yup.object({
+      age: yup.number().min(13, 'You must be 13 to make an account'),
+    })
+    
+    function App() {
+      const form = useForm({
+        defaultValues: {
+          age: 0,
+        },
+        validators: {
+          onChange: userSchema,
+        },
+      })
+      return (
+        <div>
+          <form.Field name="age" />
+        </div>
+      )
+    }
+    ```
+  </Tab>
+  <Tab title="ArkType">
+    ```tsx
+    import { type } from 'arktype'
+    
+    const userSchema = type({
+      'age>=': [13, '@must be 13 to make an account'],
+    })
+    
+    function App() {
+      const form = useForm({
+        defaultValues: {
+          age: 0,
+        },
+        validators: {
+          onChange: userSchema,
+        },
+      })
+      return (
+        <div>
+          <form.Field name="age" />
+        </div>
+      )
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Reactivity
+
+TanStack Form offers various ways to subscribe to form and field state changes using the `useStore` hook and the `form.Subscribe` component.
+
+```tsx
+const firstName = useStore(form.store, (state) => state.values.firstName)
+
+// Or with form.Subscribe
+<form.Subscribe
+  selector={(state) => [state.canSubmit, state.isSubmitting]}
+  children={([canSubmit, isSubmitting]) => (
+    <button type="submit" disabled={!canSubmit}>
+      {isSubmitting ? '...' : 'Submit'}
+    </button>
+  )}
+/>
+```
+
+<Warning>
+Always provide a selector to `useStore` to avoid unnecessary re-renders:
+
+```tsx
+// ✅ Correct use
+const firstName = useStore(form.store, (state) => state.values.firstName)
+const errors = useStore(form.store, (state) => state.errorMap)
+
+// ❌ Incorrect use - causes unnecessary re-renders
+const store = useStore(form.store)
+```
+</Warning>
+
+## Listeners
+
+Listeners allow you to react to specific triggers and dispatch side effects.
+
+```tsx
+<form.Field
+  name="country"
+  listeners={{
+    onChange: ({ value }) => {
+      console.log(`Country changed to: ${value}, resetting province`)
+      form.setFieldValue('province', '')
+    },
+  }}
+/>
+```
+
+## Array Fields
+
+Array fields allow you to manage a list of values within a form. Use the `mode="array"` prop to create an array field.
+
+```tsx
+<form.Field
+  name="hobbies"
+  mode="array"
+  children={(hobbiesField) => (
+    <div>
+      <h3>Hobbies</h3>
+      <div>
+        {!hobbiesField.state.value.length
+          ? 'No hobbies found.'
+          : hobbiesField.state.value.map((_, i) => (
+              <div key={i}>
+                <form.Field
+                  name={`hobbies[${i}].name`}
+                  children={(field) => (
+                    <div>
+                      <label htmlFor={field.name}>Name:</label>
+                      <input
+                        id={field.name}
+                        name={field.name}
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => hobbiesField.removeValue(i)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                />
+              </div>
+            ))}
+      </div>
+      <button
+        type="button"
+        onClick={() =>
+          hobbiesField.pushValue({
+            name: '',
+            description: '',
+          })
+        }
+      >
+        Add hobby
+      </button>
+    </div>
+  )}
+/>
+```
+
+## Reset Buttons
+
+When using reset buttons, prevent the default HTML reset behavior:
+
+```tsx
+<button
+  type="reset"
+  onClick={(event) => {
+    event.preventDefault()
+    form.reset()
+  }}
+>
+  Reset
+</button>
+```
+
+Alternatively, use `type="button"`:
+
+```tsx
+<button
+  type="button"
+  onClick={() => {
+    form.reset()
+  }}
+>
+  Reset
+</button>
+```

@@ -1,0 +1,629 @@
+---
+title: Form Validation
+description: Learn how to validate forms and fields in TanStack Form for Vue
+---
+
+At the core of TanStack Form's functionalities is the concept of validation. TanStack Form makes validation highly customizable:
+
+- You can control when to perform the validation (on change, on input, on blur, on submit...)
+- Validation rules can be defined at the field level or at the form level
+- Validation can be synchronous or asynchronous (for example, as a result of an API call)
+
+## When is Validation Performed?
+
+It's up to you! The `<Field />` component accepts callbacks as props such as `onChange` or `onBlur`. Those callbacks are passed the current value of the field, as well as the `fieldAPI` object, so that you can perform the validation.
+
+If you find a validation error, simply return the error message as string and it will be available in `field.state.meta.errors`.
+
+### On Change Validation
+
+```vue
+<template>
+  <form.Field
+    name="age"
+    :validators="{
+      onChange: ({ value }) =>
+        value < 13 ? 'You must be 13 to make an account' : undefined,
+    }"
+  >
+    <template v-slot="{ field }">
+      <label :for="field.name">Age:</label>
+      <input
+        :id="field.name"
+        :name="field.name"
+        :value="field.state.value"
+        type="number"
+        @input="(e) => field.handleChange((e.target as HTMLInputElement).valueAsNumber)"
+      />
+      <em role="alert" v-if="!field.state.meta.isValid">{{ 
+        field.state.meta.errors.join(', ') 
+      }}</em>
+    </template>
+  </form.Field>
+</template>
+```
+
+### On Blur Validation
+
+If you want validation to occur when the field is blurred instead of on each keystroke:
+
+```vue
+<template>
+  <form.Field
+    name="age"
+    :validators="{
+      onBlur: ({ value }) =>
+        value < 13 ? 'You must be 13 to make an account' : undefined,
+    }"
+  >
+    <template v-slot="{ field }">
+      <label :for="field.name">Age:</label>
+      <input
+        :id="field.name"
+        :name="field.name"
+        :value="field.state.value"
+        type="number"
+        @blur="field.handleBlur"
+        @input="(e) => field.handleChange((e.target as HTMLInputElement).valueAsNumber)"
+      />
+      <em role="alert" v-if="!field.state.meta.isValid">{{ 
+        field.state.meta.errors.join(', ') 
+      }}</em>
+    </template>
+  </form.Field>
+</template>
+```
+
+### Multiple Validation Triggers
+
+You can perform different pieces of validation at different times:
+
+```vue
+<template>
+  <form.Field
+    name="age"
+    :validators="{
+      onChange: ({ value }) =>
+        value < 13 ? 'You must be 13 to make an account' : undefined,
+      onBlur: ({ value }) => (value < 0 ? 'Invalid value' : undefined),
+    }"
+  >
+    <template v-slot="{ field }">
+      <label :for="field.name">Age:</label>
+      <input
+        :id="field.name"
+        :name="field.name"
+        :value="field.state.value"
+        type="number"
+        @blur="field.handleBlur"
+        @input="(e) => field.handleChange((e.target as HTMLInputElement).valueAsNumber)"
+      />
+      <em role="alert" v-if="!field.state.meta.isValid">{{ 
+        field.state.meta.errors.join(', ') 
+      }}</em>
+    </template>
+  </form.Field>
+</template>
+```
+
+Since `field.state.meta.errors` is an array, all relevant errors at a given time are displayed. You can also use `field.state.meta.errorMap` to get errors based on _when_ the validation was done.
+
+## Displaying Errors
+
+### Using the Errors Array
+
+Once you have your validation in place, you can map the errors from an array to be displayed in your UI:
+
+```vue
+<template>
+  <form.Field
+    name="age"
+    :validators="{
+      onChange: ({ value }) =>
+        value < 13 ? 'You must be 13 to make an account' : undefined,
+    }"
+  >
+    <template v-slot="{ field }">
+      <em role="alert" v-if="!field.state.meta.isValid">{{ 
+        field.state.meta.errors.join(', ') 
+      }}</em>
+    </template>
+  </form.Field>
+</template>
+```
+
+### Using the Error Map
+
+Or use the `errorMap` property to access the specific error you're looking for:
+
+```vue
+<template>
+  <form.Field
+    name="age"
+    :validators="{
+      onChange: ({ value }) =>
+        value < 13 ? 'You must be 13 to make an account' : undefined,
+    }"
+  >
+    <template v-slot="{ field }">
+      <em role="alert" v-if="field.state.meta.errorMap['onChange']">{{ 
+        field.state.meta.errorMap['onChange'] 
+      }}</em>
+    </template>
+  </form.Field>
+</template>
+```
+
+### Custom Error Types
+
+Our `errors` array and the `errorMap` match the types returned by the validators:
+
+```vue
+<form.Field
+  name="age"
+  :validators="{
+    onChange: ({ value }) => (value < 13 ? { isOldEnough: false } : undefined),
+  }"
+>
+  <template v-slot="{ field }">
+    <!-- errorMap.onChange is type `{isOldEnough: false} | undefined` -->
+    <!-- meta.errors is type `Array<{isOldEnough: false} | undefined>` -->
+    <em v-if="!field.state.meta.errorMap['onChange']?.isOldEnough">
+      The user is not old enough
+    </em>
+  </template>
+</form.Field>
+```
+
+## Field-Level vs Form-Level Validation
+
+As shown above, each `<Field>` accepts its own validation rules via the `onChange`, `onBlur` etc... callbacks. It is also possible to define validation rules at the form level by passing similar callbacks to the `useForm()` function.
+
+### Form-Level Validation
+
+```vue
+<script setup lang="ts">
+import { useForm } from '@tanstack/vue-form'
+
+const form = useForm({
+  defaultValues: {
+    age: 0,
+  },
+  onSubmit: async ({ value }) => {
+    console.log(value)
+  },
+  validators: {
+    onChange({ value }) {
+      if (value.age < 13) {
+        return 'Must be 13 or older to sign'
+      }
+      return undefined
+    },
+  },
+})
+
+// Subscribe to the form's error map so that updates to it will render
+// alternately, you can use `form.Subscribe`
+const formErrorMap = form.useStore((state) => state.errorMap)
+</script>
+
+<template>
+  <div v-if="formErrorMap.onChange">
+    <em role="alert">
+      There was an error on the form: {{ formErrorMap.onChange }}
+    </em>
+  </div>
+</template>
+```
+
+### Setting Field-Level Errors from Form Validators
+
+You can set errors on the fields from the form's validators. One common use case is validating all fields on submit by calling a single API endpoint:
+
+```vue
+<script setup lang="ts">
+import { useForm } from '@tanstack/vue-form'
+
+const form = useForm({
+  defaultValues: {
+    age: 0,
+    socials: [],
+    details: {
+      email: '',
+    },
+  },
+  validators: {
+    onSubmitAsync({ value }) {
+      // Validate the value on the server
+      const hasErrors = await verifyDataOnServer(value)
+      if (hasErrors) {
+        return {
+          form: 'Invalid data', // The `form` key is optional
+          fields: {
+            age: 'Must be 13 or older to sign',
+            // Set errors on nested fields with the field's name
+            'socials[0].url': 'The provided URL does not exist',
+            'details.email': 'An email is required',
+          },
+        }
+      }
+
+      return null
+    },
+  },
+})
+</script>
+```
+
+<Warning>
+  If you have a form validation function that returns an error, that error may be overwritten by the field-specific validation.
+
+  For example:
+  ```vue
+  <script setup lang="ts">
+  const form = useForm({
+    validators: {
+      onChange: ({ value }) => ({
+        fields: {
+          age: value.age < 12 ? 'Too young!' : undefined,
+        },
+      }),
+    },
+  })
+  </script>
+
+  <template>
+    <form.Field
+      name="age"
+      :validators="{
+        onChange: ({ value }) => (value % 2 === 0 ? 'Must be odd!' : undefined),
+      }"
+    />
+  </template>
+  ```
+
+  Will only show `'Must be odd!'` even if the `'Too young!'` error is returned by the form-level validation.
+</Warning>
+
+## Asynchronous Validation
+
+While most validations will be synchronous, there are many instances where a network call or some other async operation would be useful to validate against.
+
+To do this, we have dedicated `onChangeAsync`, `onBlurAsync`, and other methods:
+
+```vue
+<script setup lang="ts">
+const onChangeAge = async ({ value }) => {
+  await new Promise((resolve) => setTimeout(resolve, 1000))
+  return value < 13 ? 'You must be 13 to make an account' : undefined
+}
+</script>
+
+<template>
+  <form.Field
+    name="age"
+    :validators="{
+      onChangeAsync: onChangeAge,
+    }"
+  >
+    <template v-slot="{ field }">
+      <label :for="field.name">Age:</label>
+      <input
+        :id="field.name"
+        :name="field.name"
+        :value="field.state.value"
+        type="number"
+        @input="(e) => field.handleChange((e.target as HTMLInputElement).valueAsNumber)"
+      />
+      <em role="alert" v-if="!field.state.meta.isValid">{{ 
+        field.state.meta.errors.join(', ') 
+      }}</em>
+    </template>
+  </form.Field>
+</template>
+```
+
+### Combining Sync and Async Validation
+
+Synchronous and asynchronous validations can coexist:
+
+```vue
+<script setup lang="ts">
+const onBlurAge = ({ value }) => (value < 0 ? 'Invalid value' : undefined)
+
+const onBlurAgeAsync = async ({ value }) => {
+  const currentAge = await fetchCurrentAgeOnProfile()
+  return value < currentAge ? 'You can only increase the age' : undefined
+}
+</script>
+
+<template>
+  <form.Field
+    name="age"
+    :validators="{
+      onBlur: onBlurAge,
+      onBlurAsync: onBlurAgeAsync,
+    }"
+  >
+    <template v-slot="{ field }">
+      <label :for="field.name">Age:</label>
+      <input
+        :id="field.name"
+        :name="field.name"
+        :value="field.state.value"
+        type="number"
+        @blur="field.handleBlur"
+        @input="(e) => field.handleChange((e.target as HTMLInputElement).valueAsNumber)"
+      />
+      <em role="alert" v-if="!field.state.meta.isValid">{{ 
+        field.state.meta.errors.join(', ') 
+      }}</em>
+    </template>
+  </form.Field>
+</template>
+```
+
+The synchronous validation method (`onBlur`) is run first and the asynchronous method (`onBlurAsync`) is only run if the synchronous one succeeds. To change this behaviour, set the `asyncAlways` option to `true`.
+
+### Built-in Debouncing
+
+While async calls are essential for validating against the database, running a network request on every keystroke can be problematic. TanStack Form provides built-in debouncing:
+
+```vue
+<template>
+  <form.Field
+    name="age"
+    :async-debounce-ms="500"
+    :validators="{
+      onChangeAsync: async ({ value }) => {
+        // This will be debounced by 500ms
+      },
+    }"
+  >
+    <template v-slot="{ field }">
+      <!-- ... -->
+    </template>
+  </form.Field>
+</template>
+```
+
+You can even override this property on a per-validation basis:
+
+```vue
+<template>
+  <form.Field
+    name="age"
+    :async-debounce-ms="500"
+    :validators="{
+      onChangeAsyncDebounceMs: 1500,
+      onChangeAsync: async ({ value }) => {
+        // Debounced by 1500ms
+      },
+      onBlurAsync: async ({ value }) => {
+        // Debounced by 500ms
+      },
+    }"
+  >
+    <template v-slot="{ field }">
+      <!-- ... -->
+    </template>
+  </form.Field>
+</template>
+```
+
+## Schema-Based Validation
+
+While functions provide more flexibility and customization, schema-based validation can be less verbose. TanStack Form supports all libraries following the [Standard Schema specification](https://github.com/standard-schema/standard-schema).
+
+### Supported Schema Libraries
+
+- [Zod](https://zod.dev/) (v3.24.0 or higher)
+- [Valibot](https://valibot.dev/) (v1.0.0 or higher)
+- [ArkType](https://arktype.io/) (v2.1.20 or higher)
+- [Yup](https://github.com/jquense/yup) (v1.7.0 or higher)
+
+<Note>
+  Make sure to use the latest version of the schema libraries as older versions might not support Standard Schema yet.
+</Note>
+
+### Basic Schema Usage
+
+```vue
+<script setup lang="ts">
+import { z } from 'zod'
+import { useForm } from '@tanstack/vue-form'
+
+const form = useForm({
+  // ...
+})
+</script>
+
+<template>
+  <form.Field
+    name="age"
+    :validators="{
+      onChange: z.number().gte(13, 'You must be 13 to make an account'),
+    }"
+  >
+    <template v-slot="{ field }">
+      <!-- ... -->
+    </template>
+  </form.Field>
+</template>
+```
+
+### Async Schema Validation
+
+```vue
+<template>
+  <form.Field
+    name="age"
+    :validators="{
+      onChange: z.number().gte(13, 'You must be 13 to make an account'),
+      onChangeAsyncDebounceMs: 500,
+      onChangeAsync: z.number().refine(
+        async (value) => {
+          const currentAge = await fetchCurrentAgeOnProfile()
+          return value >= currentAge
+        },
+        {
+          message: 'You can only increase the age',
+        },
+      ),
+    }"
+  >
+    <template v-slot="{ field }">
+      <!-- ... -->
+    </template>
+  </form.Field>
+</template>
+```
+
+### Complete Schema Example
+
+Here's a full example using Zod for form-level validation:
+
+```vue
+<script setup lang="ts">
+import { useForm } from '@tanstack/vue-form'
+import { z } from 'zod'
+import FieldInfo from './FieldInfo.vue'
+
+const ZodSchema = z.object({
+  firstName: z
+    .string()
+    .min(3, 'First name must be at least 3 characters'),
+  lastName: z.string().min(3, 'Last name must be at least 3 characters'),
+})
+
+const form = useForm({
+  defaultValues: {
+    firstName: '',
+    lastName: '',
+  },
+  validators: {
+    onChange: ZodSchema,
+  },
+  onSubmit: async ({ value }) => {
+    alert(JSON.stringify(value))
+  },
+})
+</script>
+
+<template>
+  <form
+    @submit="
+      (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        form.handleSubmit()
+      }
+    "
+  >
+    <div>
+      <form.Field name="firstName">
+        <template v-slot="{ field, state }">
+          <label :htmlFor="field.name">First Name:</label>
+          <input
+            :id="field.name"
+            :name="field.name"
+            :value="field.state.value"
+            @input="(e) => field.handleChange((e.target as HTMLInputElement).value)"
+            @blur="field.handleBlur"
+          />
+          <FieldInfo :state="state" />
+        </template>
+      </form.Field>
+    </div>
+    <div>
+      <form.Field name="lastName">
+        <template v-slot="{ field, state }">
+          <label :htmlFor="field.name">Last Name:</label>
+          <input
+            :id="field.name"
+            :name="field.name"
+            :value="field.state.value"
+            @input="(e) => field.handleChange((e.target as HTMLInputElement).value)"
+            @blur="field.handleBlur"
+          />
+          <FieldInfo :state="state" />
+        </template>
+      </form.Field>
+    </div>
+    <form.Subscribe>
+      <template v-slot="{ canSubmit, isSubmitting }">
+        <button type="submit" :disabled="!canSubmit">
+          {{ isSubmitting ? '...' : 'Submit' }}
+        </button>
+      </template>
+    </form.Subscribe>
+  </form>
+</template>
+```
+
+### Advanced Schema Usage
+
+For even more control, you can combine a Standard Schema with a callback function:
+
+```vue
+<template>
+  <form.Field
+    name="age"
+    :validators="{
+      onChange: ({ value, fieldApi }) => {
+        const errors = fieldApi.parseValueWithSchema(
+          z.number().gte(13, 'You must be 13 to make an account'),
+        )
+
+        if (errors) return errors
+
+        // Continue with your validation
+      },
+    }"
+  >
+    <template v-slot="{ field }">
+      <!-- ... -->
+    </template>
+  </form.Field>
+</template>
+```
+
+## Preventing Invalid Form Submission
+
+The `onChange`, `onBlur` etc... callbacks are also run when the form is submitted and the submission is blocked if the form is invalid.
+
+The form state object has a `canSubmit` flag that is false when any field is invalid and the form has been touched.
+
+```vue
+<script setup lang="ts">
+const form = useForm(/* ... */)
+</script>
+
+<template>
+  <form.Subscribe>
+    <template v-slot="{ canSubmit, isSubmitting }">
+      <button type="submit" :disabled="!canSubmit">
+        {{ isSubmitting ? '...' : 'Submit' }}
+      </button>
+    </template>
+  </form.Subscribe>
+</template>
+```
+
+<Tip>
+  In practice, disabled buttons are not accessible. Consider using `aria-disabled` instead for better accessibility.
+</Tip>
+
+To prevent the form from being submitted before any interaction, combine `canSubmit` with `isPristine` flags:
+
+```vue
+<template>
+  <form.Subscribe>
+    <template v-slot="{ canSubmit, isPristine, isSubmitting }">
+      <button type="submit" :disabled="!canSubmit || isPristine">
+        {{ isSubmitting ? '...' : 'Submit' }}
+      </button>
+    </template>
+  </form.Subscribe>
+</template>
+```

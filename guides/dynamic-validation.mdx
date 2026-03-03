@@ -1,0 +1,223 @@
+---
+title: Dynamic Validation
+description: Learn how to implement dynamic validation patterns that change based on form state and user interactions
+---
+
+In many cases, you want to change the validation rules depending on the state of the form or other conditions. The most popular example is when you want to validate a field differently based on whether the user has submitted the form for the first time or not.
+
+TanStack Form supports this through the `onDynamic` validation function.
+
+## Basic Usage
+
+The `onDynamic` validator allows you to run validation that changes behavior based on the form's submission state:
+
+```tsx
+import { revalidateLogic, useForm } from '@tanstack/react-form'
+
+const form = useForm({
+  defaultValues: {
+    firstName: '',
+    lastName: '',
+  },
+  // If this is omitted, `onDynamic` will not be called
+  validationLogic: revalidateLogic(),
+  validators: {
+    onDynamic: ({ value }) => {
+      if (!value.firstName) {
+        return { firstName: 'A first name is required' }
+      }
+      return undefined
+    },
+  },
+})
+```
+
+<Warning>
+  By default, `onDynamic` is not called. You must pass `revalidateLogic()` to the `validationLogic` option of `useForm` to enable dynamic validation.
+</Warning>
+
+## Revalidation Options
+
+`revalidateLogic` allows you to specify when validation should run and change the validation rules dynamically based on the current submission state of the form.
+
+It takes two arguments:
+
+- `mode`: The mode of validation prior to the first form submission
+  - `change`: Validate on every change
+  - `blur`: Validate on blur
+  - `submit`: Validate on submit (default)
+
+- `modeAfterSubmission`: The mode of validation after the form has been submitted
+  - `change`: Validate on every change (default)
+  - `blur`: Validate on blur
+  - `submit`: Validate on submit
+
+### Example: Revalidate on Blur After First Submission
+
+```tsx
+const form = useForm({
+  defaultValues: {
+    email: '',
+  },
+  validationLogic: revalidateLogic({
+    mode: 'submit',
+    modeAfterSubmission: 'blur',
+  }),
+  validators: {
+    onDynamic: ({ value }) => {
+      if (!value.email.includes('@')) {
+        return { email: 'Invalid email address' }
+      }
+      return undefined
+    },
+  },
+})
+```
+
+This configuration validates only on submit before the first submission attempt, but switches to blur-based validation after the user tries to submit.
+
+## Accessing Errors
+
+Just as you might access errors from an `onChange` or `onBlur` validation, you can access errors from the `onDynamic` validation function using the `form.state.errorMap` object:
+
+```tsx
+function App() {
+  const form = useForm({
+    defaultValues: {
+      firstName: '',
+    },
+    validationLogic: revalidateLogic(),
+    validators: {
+      onDynamic: ({ value }) => {
+        if (!value.firstName) {
+          return { firstName: 'A first name is required' }
+        }
+        return undefined
+      },
+    },
+  })
+
+  return <p>{form.state.errorMap.onDynamic?.firstName}</p>
+}
+```
+
+## Combining with Other Validators
+
+You can use `onDynamic` validation alongside other validation logic, such as `onChange` or `onBlur`:
+
+```tsx
+const form = useForm({
+  defaultValues: {
+    firstName: '',
+    lastName: '',
+  },
+  validationLogic: revalidateLogic(),
+  validators: {
+    onChange: ({ value }) => {
+      if (!value.firstName) {
+        return { firstName: 'A first name is required' }
+      }
+      return undefined
+    },
+    onDynamic: ({ value }) => {
+      if (!value.lastName) {
+        return { lastName: 'A last name is required' }
+      }
+      return undefined
+    },
+  },
+})
+```
+
+## Field-Level Dynamic Validation
+
+You can also use `onDynamic` validation with individual fields:
+
+```tsx
+<form.Field
+  name="age"
+  validators={{
+    onDynamic: ({ value }) =>
+      value > 18 ? undefined : 'Age must be greater than 18',
+  }}
+>
+  {(field) => (
+    <div>
+      <input
+        type="number"
+        onChange={(e) => field.handleChange(e.target.valueAsNumber)}
+        onBlur={field.handleBlur}
+        value={field.state.value}
+      />
+      <p style={{ color: 'red' }}>
+        {field.state.meta.errorMap.onDynamic}
+      </p>
+    </div>
+  )}
+</form.Field>
+```
+
+## Async Dynamic Validation
+
+Async validation can also be used with `onDynamicAsync`, and you can even debounce the async validation to avoid excessive calls:
+
+```tsx
+const form = useForm({
+  defaultValues: {
+    username: '',
+  },
+  validationLogic: revalidateLogic(),
+  validators: {
+    onDynamicAsyncDebounceMs: 500, // Debounce by 500ms
+    onDynamicAsync: async ({ value }) => {
+      if (!value.username) {
+        return { username: 'Username is required' }
+      }
+      // Check if username is available
+      const isAvailable = await checkUsernameAvailability(value.username)
+      return isAvailable ? undefined : { username: 'Username is already taken' }
+    },
+  },
+})
+```
+
+<Tip>
+  Debouncing async validation is especially important for API calls to avoid overwhelming your server with requests on every keystroke.
+</Tip>
+
+## Standard Schema Validation
+
+You can use standard schema validation libraries like Zod or Valibot with `onDynamic` validation:
+
+```tsx
+import { z } from 'zod'
+
+const schema = z.object({
+  firstName: z.string().min(1, 'A first name is required'),
+  lastName: z.string().min(1, 'A last name is required'),
+})
+
+const form = useForm({
+  defaultValues: {
+    firstName: '',
+    lastName: '',
+  },
+  validationLogic: revalidateLogic(),
+  validators: {
+    onDynamic: schema,
+  },
+})
+```
+
+## Use Cases
+
+Dynamic validation is useful for:
+
+- **Progressive validation**: Show validation errors only after the user has attempted to submit
+- **Conditional validation**: Change validation rules based on other field values or form state
+- **User experience optimization**: Reduce validation noise during initial data entry
+- **Multi-step forms**: Validate different fields at different stages of the form flow
+
+<Tip>
+  Consider using `revalidateLogic({ mode: 'submit', modeAfterSubmission: 'change' })` for the best user experience - it avoids showing errors while users are still typing initially, but provides immediate feedback after they've tried to submit.
+</Tip>

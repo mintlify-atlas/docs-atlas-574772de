@@ -1,0 +1,395 @@
+---
+title: Form Submission Patterns
+description: Learn advanced patterns for handling form submission including metadata, transformations, and multiple submission actions
+---
+
+TanStack Form provides flexible options for handling form submissions, allowing you to implement various submission patterns to match your application's needs.
+
+## Basic Submission
+
+The simplest form submission uses the `onSubmit` handler:
+
+```tsx
+const form = useForm({
+  defaultValues: {
+    name: '',
+    email: '',
+  },
+  onSubmit: async ({ value }) => {
+    // Send data to server
+    await fetch('/api/submit', {
+      method: 'POST',
+      body: JSON.stringify(value),
+    })
+  },
+})
+```
+
+## Passing Additional Metadata
+
+You may have multiple types of submission behavior - for example, going back to the previous page or staying on the form. You can accomplish this by specifying the `onSubmitMeta` property:
+
+```tsx
+import { useForm } from '@tanstack/react-form'
+
+type FormMeta = {
+  submitAction: 'continue' | 'backToMenu' | null
+}
+
+// Metadata is not required to call form.handleSubmit().
+// Specify what values to use as default if no meta is passed
+const defaultMeta: FormMeta = {
+  submitAction: null,
+}
+
+function App() {
+  const form = useForm({
+    defaultValues: {
+      data: '',
+    },
+    // Define what meta values to expect on submission
+    onSubmitMeta: defaultMeta,
+    onSubmit: async ({ value, meta }) => {
+      // Do something with the values passed via handleSubmit
+      console.log(`Selected action - ${meta.submitAction}`, value)
+      
+      if (meta.submitAction === 'backToMenu') {
+        // Navigate back
+        router.push('/menu')
+      }
+    },
+  })
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+      }}
+    >
+      {/* Form fields */}
+      
+      <button
+        type="submit"
+        // Overwrites the default specified in onSubmitMeta
+        onClick={() => form.handleSubmit({ submitAction: 'continue' })}
+      >
+        Submit and continue
+      </button>
+      
+      <button
+        type="submit"
+        onClick={() => form.handleSubmit({ submitAction: 'backToMenu' })}
+      >
+        Submit and back to menu
+      </button>
+    </form>
+  )
+}
+```
+
+<Tip>
+  If `form.handleSubmit()` is called without metadata, it will use the default values provided in `onSubmitMeta`.
+</Tip>
+
+## Common Submission Patterns
+
+### Save and Continue Editing
+
+```tsx
+const form = useForm({
+  defaultValues: { title: '', content: '' },
+  onSubmit: async ({ value, formApi }) => {
+    const saved = await saveArticle(value)
+    // Update form with server response (e.g., ID, timestamps)
+    formApi.setFieldValue('id', saved.id)
+    // Don't reset - keep editing
+  },
+})
+```
+
+### Save and Create New
+
+```tsx
+const form = useForm({
+  defaultValues: { title: '', content: '' },
+  onSubmit: async ({ value, formApi }) => {
+    await saveArticle(value)
+    // Reset form for new entry
+    formApi.reset()
+    toast.success('Article saved! Create another?')
+  },
+})
+```
+
+### Save Draft vs Publish
+
+```tsx
+type SubmitMeta = {
+  action: 'draft' | 'publish'
+}
+
+const form = useForm({
+  defaultValues: { title: '', content: '' },
+  onSubmitMeta: { action: 'draft' } as SubmitMeta,
+  onSubmit: async ({ value, meta }) => {
+    if (meta.action === 'draft') {
+      await saveDraft(value)
+      toast.success('Draft saved')
+    } else {
+      await publishArticle(value)
+      toast.success('Article published!')
+      router.push('/articles')
+    }
+  },
+})
+
+return (
+  <>
+    <button onClick={() => form.handleSubmit({ action: 'draft' })}>
+      Save Draft
+    </button>
+    <button onClick={() => form.handleSubmit({ action: 'publish' })}>
+      Publish
+    </button>
+  </>
+)
+```
+
+### Submit with Confirmation
+
+```tsx
+const form = useForm({
+  defaultValues: { amount: 0 },
+  onSubmit: async ({ value }) => {
+    const confirmed = await confirmDialog(
+      `Are you sure you want to transfer $${value.amount}?`
+    )
+    
+    if (!confirmed) {
+      throw new Error('User cancelled')
+    }
+    
+    await processTransfer(value)
+  },
+})
+```
+
+## Transforming Data with Standard Schemas
+
+While TanStack Form provides [Standard Schema support](/react/validation) for validation, it does not preserve the Schema's output data. The value passed to the `onSubmit` function will always be the input data.
+
+To receive the output data of a Standard Schema, parse it in the `onSubmit` function:
+
+```tsx
+import { z } from 'zod'
+
+const schema = z.object({
+  age: z.string().transform((age) => Number(age)),
+  tags: z.string().transform((tags) => tags.split(',').map(t => t.trim())),
+})
+
+// TanStack Form uses the input type of Standard Schemas
+const defaultValues: z.input<typeof schema> = {
+  age: '13',
+  tags: 'react, forms, typescript',
+}
+
+const form = useForm({
+  defaultValues,
+  validators: {
+    onChange: schema,
+  },
+  onSubmit: ({ value }) => {
+    // Input types from form
+    const inputAge: string = value.age
+    const inputTags: string = value.tags
+    
+    // Parse through schema to get transformed values
+    const result = schema.parse(value)
+    const outputAge: number = result.age // 13
+    const outputTags: string[] = result.tags // ['react', 'forms', 'typescript']
+    
+    // Send transformed data to server
+    await fetch('/api/user', {
+      method: 'POST',
+      body: JSON.stringify(result),
+    })
+  },
+})
+```
+
+<Warning>
+  Always transform data in `onSubmit` if you're using schema transformations. The form state will contain the original input values, not the transformed output.
+</Warning>
+
+## Accessing Form API
+
+The `onSubmit` handler receives a `formApi` parameter that gives you full control over the form:
+
+```tsx
+const form = useForm({
+  defaultValues: { email: '' },
+  onSubmit: async ({ value, formApi }) => {
+    try {
+      await submitData(value)
+      formApi.reset() // Reset to initial values
+    } catch (error) {
+      // Set a form-level error
+      formApi.setErrorMap({
+        onSubmit: 'Failed to submit form. Please try again.',
+      })
+    }
+  },
+})
+```
+
+### Available Form API Methods
+
+```tsx
+formApi.reset() // Reset to default values
+formApi.setFieldValue('email', 'new@email.com') // Update a field
+formApi.getFieldValue('email') // Get current field value
+formApi.setErrorMap({ onSubmit: 'Error!' }) // Set errors
+formApi.validateAllFields('change') // Trigger validation
+```
+
+## Handling Submission Errors
+
+### Display Error Messages
+
+```tsx
+const form = useForm({
+  defaultValues: { email: '' },
+  onSubmit: async ({ value }) => {
+    const response = await fetch('/api/submit', {
+      method: 'POST',
+      body: JSON.stringify(value),
+    })
+    
+    if (!response.ok) {
+      throw new Error('Submission failed')
+    }
+  },
+})
+
+return (
+  <form>
+    {/* Show submission errors */}
+    <form.Subscribe selector={(state) => [state.errorMap.onSubmit]}>
+      {([error]) => error && (
+        <div className="error">{error}</div>
+      )}
+    </form.Subscribe>
+    
+    {/* Fields */}
+  </form>
+)
+```
+
+### Retry Failed Submissions
+
+```tsx
+const form = useForm({
+  defaultValues: { data: '' },
+  onSubmit: async ({ value }) => {
+    let retries = 3
+    
+    while (retries > 0) {
+      try {
+        await fetch('/api/submit', {
+          method: 'POST',
+          body: JSON.stringify(value),
+        })
+        return // Success
+      } catch (error) {
+        retries--
+        if (retries === 0) throw error
+        await new Promise(r => setTimeout(r, 1000)) // Wait before retry
+      }
+    }
+  },
+})
+```
+
+## Optimistic Updates
+
+Show immediate feedback while the submission is processing:
+
+```tsx
+const form = useForm({
+  defaultValues: { title: '', content: '' },
+  onSubmit: async ({ value, formApi }) => {
+    // Optimistically update UI
+    addToList({ ...value, id: 'temp', status: 'saving' })
+    
+    try {
+      const saved = await saveArticle(value)
+      // Replace temporary item with real data
+      replaceInList('temp', saved)
+    } catch (error) {
+      // Rollback on error
+      removeFromList('temp')
+      throw error
+    }
+  },
+})
+```
+
+## Submission State
+
+Track submission state to provide feedback:
+
+```tsx
+<form.Subscribe
+  selector={(state) => [state.isSubmitting, state.canSubmit, state.submissionAttempts]}
+>
+  {([isSubmitting, canSubmit, attempts]) => (
+    <div>
+      <button type="submit" disabled={!canSubmit || isSubmitting}>
+        {isSubmitting ? 'Saving...' : 'Save'}
+      </button>
+      {attempts > 0 && (
+        <p>Submission attempts: {attempts}</p>
+      )}
+    </div>
+  )}
+</form.Subscribe>
+```
+
+<Tip>
+  Use `state.isSubmitting` to show loading indicators and disable the submit button during submission.
+</Tip>
+
+## Progressive Enhancement
+
+For server-side rendering, you can enhance forms that work without JavaScript:
+
+```tsx
+const form = useForm({
+  defaultValues: { email: '' },
+  onSubmit: async ({ value }) => {
+    // This will run client-side with JS
+    await fetch('/api/submit', {
+      method: 'POST',
+      body: JSON.stringify(value),
+    })
+  },
+})
+
+return (
+  // Form will POST to /api/submit without JS
+  <form 
+    action="/api/submit" 
+    method="post"
+    onSubmit={(e) => {
+      e.preventDefault() // Prevent default only with JS
+      form.handleSubmit()
+    }}
+  >
+    {/* Fields */}
+  </form>
+)
+```
+
+For full SSR examples, see the [Server-Side Rendering guide](/guides/ssr).

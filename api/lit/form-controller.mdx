@@ -1,0 +1,381 @@
+---
+title: TanStackFormController
+description: API reference for the TanStackFormController class in Lit
+---
+
+The `TanStackFormController` class is a Reactive Controller that manages forms in Lit applications using TanStack Form.
+
+## Import
+
+```typescript
+import { TanStackFormController } from '@tanstack/lit-form'
+```
+
+## Constructor
+
+```typescript
+class TanStackFormController<
+  TParentData,
+  TFormOnMount extends undefined | FormValidateOrFn<TParentData>,
+  TFormOnChange extends undefined | FormValidateOrFn<TParentData>,
+  TFormOnChangeAsync extends undefined | FormAsyncValidateOrFn<TParentData>,
+  TFormOnBlur extends undefined | FormValidateOrFn<TParentData>,
+  TFormOnBlurAsync extends undefined | FormAsyncValidateOrFn<TParentData>,
+  TFormOnSubmit extends undefined | FormValidateOrFn<TParentData>,
+  TFormOnSubmitAsync extends undefined | FormAsyncValidateOrFn<TParentData>,
+  TFormOnDynamic extends undefined | FormValidateOrFn<TParentData>,
+  TFormOnDynamicAsync extends undefined | FormAsyncValidateOrFn<TParentData>,
+  TFormOnServer extends undefined | FormAsyncValidateOrFn<TParentData>,
+  TSubmitMeta,
+> implements ReactiveController {
+  constructor(
+    host: ReactiveControllerHost,
+    config?: FormOptions<
+      TParentData,
+      TFormOnMount,
+      TFormOnChange,
+      TFormOnChangeAsync,
+      TFormOnBlur,
+      TFormOnBlurAsync,
+      TFormOnSubmit,
+      TFormOnSubmitAsync,
+      TFormOnDynamic,
+      TFormOnDynamicAsync,
+      TFormOnServer,
+      TSubmitMeta
+    >,
+  )
+}
+```
+
+## Constructor Parameters
+
+<ParamField path="host" type="ReactiveControllerHost" required>
+  The Lit element that will host this controller. Typically `this` when instantiating in a Lit element.
+</ParamField>
+
+<ParamField path="config" type="FormOptions<TFormData>">
+  Optional configuration object for the form.
+
+  <ParamField path="config.defaultValues" type="TFormData">
+    Initial values for the form fields.
+  </ParamField>
+
+  <ParamField path="config.onSubmit" type="(values: FormSubmitData<TFormData>) => void | Promise<void>">
+    Callback function called when the form is submitted.
+  </ParamField>
+
+  <ParamField path="config.validators" type="FormValidators<TFormData>">
+    Validation functions for the form.
+
+    <ParamField path="config.validators.onChange" type="FormValidateOrFn<TFormData>">
+      Validator that runs on every change.
+    </ParamField>
+
+    <ParamField path="config.validators.onChangeAsync" type="FormAsyncValidateOrFn<TFormData>">
+      Async validator that runs on change with debouncing.
+    </ParamField>
+
+    <ParamField path="config.validators.onBlur" type="FormValidateOrFn<TFormData>">
+      Validator that runs when the form loses focus.
+    </ParamField>
+
+    <ParamField path="config.validators.onMount" type="FormValidateOrFn<TFormData>">
+      Validator that runs when the form is mounted.
+    </ParamField>
+  </ParamField>
+</ParamField>
+
+## Properties
+
+<ResponseField name="api" type="FormApi<TFormData>">
+  The form API instance.
+
+  <ResponseField name="api.handleSubmit" type="() => void">
+    Function to trigger form submission.
+  </ResponseField>
+
+  <ResponseField name="api.reset" type="() => void">
+    Function to reset the form to its initial state.
+  </ResponseField>
+
+  <ResponseField name="api.state" type="FormState<TFormData>">
+    Current state of the form including values, errors, and validation status.
+  </ResponseField>
+
+  <ResponseField name="api.store" type="Store<FormState<TFormData>>">
+    The underlying store for the form state.
+  </ResponseField>
+</ResponseField>
+
+## Methods
+
+<ResponseField name="field" type="<TName, TData, ...>(fieldConfig, render) => Directive">
+  Creates a field directive for rendering form fields.
+
+  <ParamField path="fieldConfig" type="FieldOptions<TParentData, TName, TData>" required>
+    Configuration for the field.
+
+    <ParamField path="fieldConfig.name" type="TName" required>
+      The field name as a path string.
+    </ParamField>
+
+    <ParamField path="fieldConfig.defaultValue" type="TData">
+      The default value for the field.
+    </ParamField>
+
+    <ParamField path="fieldConfig.validators" type="FieldValidators<TParentData, TName, TData>">
+      Validation functions for the field.
+    </ParamField>
+  </ParamField>
+
+  <ParamField path="render" type="(field: FieldApi<...>) => unknown" required>
+    A render callback that receives the field API and returns Lit template content.
+  </ParamField>
+</ResponseField>
+
+<ResponseField name="hostConnected" type="() => void">
+  Lifecycle method called when the host element is connected. Subscribes to form state updates.
+</ResponseField>
+
+<ResponseField name="hostDisconnected" type="() => void">
+  Lifecycle method called when the host element is disconnected. Unsubscribes from form state updates.
+</ResponseField>
+
+## Usage Example
+
+### Basic Form
+
+```typescript
+import { LitElement, html } from 'lit'
+import { customElement } from 'lit/decorators.js'
+import { TanStackFormController } from '@tanstack/lit-form'
+
+interface FormData {
+  firstName: string
+  lastName: string
+}
+
+@customElement('my-form')
+export class MyForm extends LitElement {
+  #form = new TanStackFormController<FormData>(this, {
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+    },
+    onSubmit({ value }) {
+      console.log('Form submitted:', value)
+    },
+  })
+
+  render() {
+    return html`
+      <form
+        @submit=${(e: Event) => {
+          e.preventDefault()
+          e.stopPropagation()
+          this.#form.api.handleSubmit()
+        }}
+      >
+        ${this.#form.field(
+          {
+            name: 'firstName',
+            validators: {
+              onChange: ({ value }) =>
+                !value
+                  ? 'A first name is required'
+                  : value.length < 3
+                    ? 'First name must be at least 3 characters'
+                    : undefined,
+            },
+          },
+          (field) => html`
+            <div>
+              <label for="${field.name}">First Name:</label>
+              <input
+                id="${field.name}"
+                name="${field.name}"
+                .value="${field.state.value}"
+                @blur="${() => field.handleBlur()}"
+                @input="${(e: Event) => {
+                  const target = e.target as HTMLInputElement
+                  field.handleChange(target.value)
+                }}"
+              />
+              ${field.state.meta.isTouched && field.state.meta.errors.length > 0
+                ? html`<div style="color: red;">${field.state.meta.errors[0]}</div>`
+                : ''}
+            </div>
+          `,
+        )}
+
+        <button type="submit" ?disabled=${this.#form.api.state.isSubmitting}>
+          ${this.#form.api.state.isSubmitting ? '...' : 'Submit'}
+        </button>
+
+        <button
+          type="button"
+          @click=${() => this.#form.api.reset()}
+        >
+          Reset
+        </button>
+      </form>
+    `
+  }
+}
+```
+
+### Form with Async Validation
+
+```typescript
+import { LitElement, html, nothing } from 'lit'
+import { customElement } from 'lit/decorators.js'
+import { TanStackFormController } from '@tanstack/lit-form'
+import { repeat } from 'lit/directives/repeat.js'
+
+@customElement('async-form')
+export class AsyncForm extends LitElement {
+  #form = new TanStackFormController(this, {
+    defaultValues: {
+      firstName: '',
+    },
+    onSubmit({ value }) {
+      console.log(value)
+    },
+  })
+
+  render() {
+    return html`
+      <form @submit=${(e: Event) => {
+        e.preventDefault()
+        this.#form.api.handleSubmit()
+      }}>
+        ${this.#form.field(
+          {
+            name: 'firstName',
+            validators: {
+              onChange: ({ value }) =>
+                !value
+                  ? 'A first name is required'
+                  : value.length < 3
+                    ? 'First name must be at least 3 characters'
+                    : undefined,
+              onChangeAsyncDebounceMs: 500,
+              onChangeAsync: async ({ value }) => {
+                await new Promise((resolve) => setTimeout(resolve, 1000))
+                return (
+                  value.includes('error') &&
+                  'No "error" allowed in first name'
+                )
+              },
+            },
+          },
+          (field) => html`
+            <div>
+              <label for="${field.name}">First Name:</label>
+              <input
+                id="${field.name}"
+                name="${field.name}"
+                .value="${field.state.value}"
+                @blur="${() => field.handleBlur()}"
+                @input="${(e: Event) => {
+                  const target = e.target as HTMLInputElement
+                  field.handleChange(target.value)
+                }}"
+              />
+              ${field.state.meta.isTouched && !field.state.meta.isValid
+                ? html`${repeat(
+                    field.state.meta.errors,
+                    (__, idx) => idx,
+                    (error) => html`<div style="color: red;">${error}</div>`,
+                  )}`
+                : nothing}
+              ${field.state.meta.isValidating
+                ? html`<p>Validating...</p>`
+                : nothing}
+            </div>
+          `,
+        )}
+        <button type="submit">Submit</button>
+      </form>
+    `
+  }
+}
+```
+
+### Array Fields
+
+```typescript
+import { LitElement, html } from 'lit'
+import { customElement } from 'lit/decorators.js'
+import { TanStackFormController } from '@tanstack/lit-form'
+import { repeat } from 'lit/directives/repeat.js'
+
+interface Item {
+  name: string
+}
+
+@customElement('array-form')
+export class ArrayForm extends LitElement {
+  #form = new TanStackFormController<{ items: Item[] }>(this, {
+    defaultValues: {
+      items: [],
+    },
+    onSubmit({ value }) {
+      console.log(value)
+    },
+  })
+
+  render() {
+    return html`
+      <form>
+        ${this.#form.field(
+          { name: 'items' },
+          (field) => html`
+            <div>
+              ${repeat(
+                field.state.value,
+                (__, idx) => idx,
+                (__, idx) => html`
+                  <div>
+                    ${this.#form.field(
+                      { name: `items[${idx}].name` },
+                      (subField) => html`
+                        <input
+                          .value="${subField.state.value}"
+                          @input="${(e: Event) => {
+                            const target = e.target as HTMLInputElement
+                            subField.handleChange(target.value)
+                          }}"
+                        />
+                      `,
+                    )}
+                    <button
+                      @click=${() => field.removeValue(idx)}
+                      type="button"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                `,
+              )}
+              <button
+                @click=${() => field.pushValue({ name: '' })}
+                type="button"
+              >
+                Add Item
+              </button>
+            </div>
+          `,
+        )}
+      </form>
+    `
+  }
+}
+```
+
+## See Also
+
+- [FormApi](/api/core/form-api) - Core form API documentation
+- [FieldApi](/api/core/field-api) - Core field API documentation
+- [Lit Reactive Controllers](https://lit.dev/docs/composition/controllers/) - Learn about Lit's reactive controller pattern

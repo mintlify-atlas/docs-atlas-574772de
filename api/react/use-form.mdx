@@ -1,0 +1,402 @@
+---
+title: useForm
+description: API reference for the useForm hook in TanStack Form React
+---
+
+The `useForm` hook is the primary way to create and manage forms in TanStack Form for React. It returns an extended `FormApi` instance with React-specific utilities.
+
+## Import
+
+```tsx
+import { useForm } from '@tanstack/react-form'
+```
+
+## Signature
+
+```tsx
+function useForm<TFormData>(opts?: FormOptions<TFormData>): ReactFormExtendedApi<TFormData>
+```
+
+## Parameters
+
+<ParamField path="opts" type="FormOptions<TFormData>" optional>
+  Configuration options for the form
+
+  <ParamField path="opts.defaultValues" type="TFormData" optional>
+    Initial values for the form fields
+  </ParamField>
+
+  <ParamField path="opts.formId" type="string" optional>
+    Unique identifier for the form (used for devtools and debugging)
+  </ParamField>
+
+  <ParamField path="opts.defaultState" type="Partial<FormState<TFormData>>" optional>
+    Default state for the form
+  </ParamField>
+
+  <ParamField path="opts.asyncAlways" type="boolean" optional>
+    If true, always run async validation even when sync validation fails. Defaults to false.
+  </ParamField>
+
+  <ParamField path="opts.asyncDebounceMs" type="number" optional>
+    Default debounce time in milliseconds for async validation
+  </ParamField>
+
+  <ParamField path="opts.canSubmitWhenInvalid" type="boolean" optional>
+    If true, allows form submission even when validation fails. Defaults to false.
+  </ParamField>
+
+  <ParamField path="opts.validators" type="FormValidators<TFormData>" optional>
+    Form-level validators
+
+    <ParamField path="opts.validators.onMount" type="FormValidateOrFn<TFormData>" optional>
+      Validator that runs when the form mounts
+    </ParamField>
+
+    <ParamField path="opts.validators.onChange" type="FormValidateOrFn<TFormData>" optional>
+      Validator that runs when any field changes
+    </ParamField>
+
+    <ParamField path="opts.validators.onChangeAsync" type="FormAsyncValidateOrFn<TFormData>" optional>
+      Async validator that runs when any field changes
+    </ParamField>
+
+    <ParamField path="opts.validators.onChangeAsyncDebounceMs" type="number" optional>
+      Debounce time for onChange async validation
+    </ParamField>
+
+    <ParamField path="opts.validators.onBlur" type="FormValidateOrFn<TFormData>" optional>
+      Validator that runs when any field loses focus
+    </ParamField>
+
+    <ParamField path="opts.validators.onBlurAsync" type="FormAsyncValidateOrFn<TFormData>" optional>
+      Async validator that runs when any field loses focus
+    </ParamField>
+
+    <ParamField path="opts.validators.onBlurAsyncDebounceMs" type="number" optional>
+      Debounce time for onBlur async validation
+    </ParamField>
+
+    <ParamField path="opts.validators.onSubmit" type="FormValidateOrFn<TFormData>" optional>
+      Validator that runs on form submission
+    </ParamField>
+
+    <ParamField path="opts.validators.onSubmitAsync" type="FormAsyncValidateOrFn<TFormData>" optional>
+      Async validator that runs on form submission
+    </ParamField>
+  </ParamField>
+
+  <ParamField path="opts.onSubmit" type="(props: { value: TFormData, formApi: FormApi }) => any | Promise<any>" optional>
+    Function called when the form is submitted with valid data
+  </ParamField>
+
+  <ParamField path="opts.onSubmitInvalid" type="(props: { value: TFormData, formApi: FormApi }) => void" optional>
+    Function called when the form is submitted with invalid data
+  </ParamField>
+
+  <ParamField path="opts.listeners" type="FormListeners<TFormData>" optional>
+    Form-level event listeners
+
+    <ParamField path="opts.listeners.onChange" type="(props: { formApi, fieldApi }) => void" optional>
+      Called when any field value changes
+    </ParamField>
+
+    <ParamField path="opts.listeners.onBlur" type="(props: { formApi, fieldApi }) => void" optional>
+      Called when any field loses focus
+    </ParamField>
+
+    <ParamField path="opts.listeners.onMount" type="(props: { formApi }) => void" optional>
+      Called when the form mounts
+    </ParamField>
+
+    <ParamField path="opts.listeners.onSubmit" type="(props: { formApi, meta }) => void" optional>
+      Called when the form is submitted
+    </ParamField>
+  </ParamField>
+</ParamField>
+
+## Return Value
+
+<ResponseField name="form" type="ReactFormExtendedApi<TFormData>">
+  The form API instance with React-specific extensions
+
+  <ResponseField name="Field" type="FieldComponent<TFormData>">
+    A React component for rendering form fields. It's a pre-bound version of the standalone Field component.
+  </ResponseField>
+
+  <ResponseField name="Subscribe" type="Component">
+    A React component for subscribing to form state changes
+
+    ```tsx
+    <form.Subscribe
+      selector={(state) => [state.canSubmit, state.isSubmitting]}
+      children={([canSubmit, isSubmitting]) => (
+        <button disabled={!canSubmit}>{isSubmitting ? '...' : 'Submit'}</button>
+      )}
+    />
+    ```
+  </ResponseField>
+
+  <ResponseField name="state" type="FormState<TFormData>">
+    Current form state
+
+    <ResponseField name="values" type="TFormData">
+      Current form field values
+    </ResponseField>
+
+    <ResponseField name="errors" type="ValidationError[]">
+      Form-level validation errors
+    </ResponseField>
+
+    <ResponseField name="errorMap" type="ValidationErrorMap">
+      Map of errors by validation event
+    </ResponseField>
+
+    <ResponseField name="fieldMeta" type="Record<string, FieldMeta>">
+      Metadata for all form fields
+    </ResponseField>
+
+    <ResponseField name="isSubmitting" type="boolean">
+      True when form submission is in progress
+    </ResponseField>
+
+    <ResponseField name="isSubmitted" type="boolean">
+      True after form has been successfully submitted
+    </ResponseField>
+
+    <ResponseField name="isValidating" type="boolean">
+      True when any validation is in progress
+    </ResponseField>
+
+    <ResponseField name="isValid" type="boolean">
+      True when form and all fields are valid
+    </ResponseField>
+
+    <ResponseField name="canSubmit" type="boolean">
+      True when form can be submitted based on current state
+    </ResponseField>
+
+    <ResponseField name="isDirty" type="boolean">
+      True when any field has been modified
+    </ResponseField>
+
+    <ResponseField name="isPristine" type="boolean">
+      True when no fields have been modified
+    </ResponseField>
+
+    <ResponseField name="isTouched" type="boolean">
+      True when any field has been touched
+    </ResponseField>
+
+    <ResponseField name="isBlurred" type="boolean">
+      True when any field has been blurred
+    </ResponseField>
+
+    <ResponseField name="submissionAttempts" type="number">
+      Counter for submission attempts
+    </ResponseField>
+  </ResponseField>
+
+  <ResponseField name="handleSubmit" type="() => void">
+    Submit the form. Triggers validation and calls onSubmit if valid.
+  </ResponseField>
+
+  <ResponseField name="reset" type="(values?: TFormData, opts?: { keepDefaultValues?: boolean }) => void">
+    Reset the form to default values or specified values
+  </ResponseField>
+
+  <ResponseField name="validateAllFields" type="(cause: ValidationCause) => Promise<void>">
+    Manually trigger validation on all fields
+  </ResponseField>
+
+  <ResponseField name="validateField" type="<TField extends DeepKeys<TFormData>>(field: TField, cause: ValidationCause) => ValidationError[]">
+    Validate a specific field
+  </ResponseField>
+
+  <ResponseField name="getFieldValue" type="<TField extends DeepKeys<TFormData>>(field: TField) => DeepValue<TFormData, TField>">
+    Get the current value of a field
+  </ResponseField>
+
+  <ResponseField name="setFieldValue" type="<TField extends DeepKeys<TFormData>>(field: TField, updater: Updater<DeepValue<TFormData, TField>>, opts?: UpdateMetaOptions) => void">
+    Set the value of a field
+  </ResponseField>
+
+  <ResponseField name="getFieldMeta" type="<TField extends DeepKeys<TFormData>>(field: TField) => FieldMeta">
+    Get metadata for a field
+  </ResponseField>
+
+  <ResponseField name="setFieldMeta" type="<TField extends DeepKeys<TFormData>>(field: TField, updater: Updater<FieldMeta>) => void">
+    Set metadata for a field
+  </ResponseField>
+
+  <ResponseField name="pushFieldValue" type="<TField extends DeepKeys<TFormData>>(field: TField, value: any, opts?: UpdateMetaOptions) => void">
+    Push a value to an array field
+  </ResponseField>
+
+  <ResponseField name="insertFieldValue" type="<TField extends DeepKeys<TFormData>>(field: TField, index: number, value: any, opts?: UpdateMetaOptions) => void">
+    Insert a value into an array field at a specific index
+  </ResponseField>
+
+  <ResponseField name="removeFieldValue" type="<TField extends DeepKeys<TFormData>>(field: TField, index: number, opts?: UpdateMetaOptions) => void">
+    Remove a value from an array field
+  </ResponseField>
+
+  <ResponseField name="swapFieldValues" type="<TField extends DeepKeys<TFormData>>(field: TField, index1: number, index2: number) => void">
+    Swap two values in an array field
+  </ResponseField>
+
+  <ResponseField name="replaceFieldValue" type="<TField extends DeepKeys<TFormData>>(field: TField, index: number, value: any, opts?: UpdateMetaOptions) => void">
+    Replace a value in an array field
+  </ResponseField>
+</ResponseField>
+
+## Usage
+
+### Basic Form
+
+```tsx
+import { useForm } from '@tanstack/react-form'
+
+function MyForm() {
+  const form = useForm({
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+    },
+    onSubmit: async ({ value }) => {
+      console.log('Form submitted:', value)
+    },
+  })
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        form.handleSubmit()
+      }}
+    >
+      <form.Field
+        name="firstName"
+        children={(field) => (
+          <>
+            <input
+              value={field.state.value}
+              onChange={(e) => field.handleChange(e.target.value)}
+            />
+            {field.state.meta.errors && (
+              <em>{field.state.meta.errors.join(', ')}</em>
+            )}
+          </>
+        )}
+      />
+      <button type="submit">Submit</button>
+    </form>
+  )
+}
+```
+
+### Form with Validation
+
+```tsx
+import { useForm } from '@tanstack/react-form'
+
+function MyForm() {
+  const form = useForm({
+    defaultValues: {
+      email: '',
+      age: 0,
+    },
+    validators: {
+      onChange: ({ value }) => {
+        if (value.age < 18) {
+          return {
+            fields: {
+              age: 'Must be 18 or older',
+            },
+          }
+        }
+        return undefined
+      },
+    },
+    onSubmit: async ({ value }) => {
+      console.log('Form submitted:', value)
+    },
+  })
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        form.handleSubmit()
+      }}
+    >
+      {/* Form fields */}
+    </form>
+  )
+}
+```
+
+### Using Subscribe Component
+
+```tsx
+import { useForm } from '@tanstack/react-form'
+
+function MyForm() {
+  const form = useForm({
+    defaultValues: { name: '' },
+    onSubmit: async ({ value }) => console.log(value),
+  })
+
+  return (
+    <form onSubmit={(e) => {
+      e.preventDefault()
+      form.handleSubmit()
+    }}>
+      <form.Subscribe
+        selector={(state) => [state.canSubmit, state.isSubmitting]}
+        children={([canSubmit, isSubmitting]) => (
+          <button type="submit" disabled={!canSubmit}>
+            {isSubmitting ? 'Submitting...' : 'Submit'}
+          </button>
+        )}
+      />
+    </form>
+  )
+}
+```
+
+### TypeScript
+
+```tsx
+import { useForm } from '@tanstack/react-form'
+
+interface FormData {
+  firstName: string
+  lastName: string
+  age: number
+}
+
+function MyForm() {
+  const form = useForm<FormData>({
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+      age: 0,
+    },
+    onSubmit: async ({ value }) => {
+      // value is typed as FormData
+      console.log(value.firstName)
+    },
+  })
+
+  return (
+    <form onSubmit={(e) => {
+      e.preventDefault()
+      form.handleSubmit()
+    }}>
+      {/* Form fields */}
+    </form>
+  )
+}
+```

@@ -1,0 +1,574 @@
+---
+title: FormApi
+description: Core class for managing form state and validation
+---
+
+# FormApi
+
+The `FormApi` class is the core class for managing form state, validation, and submission in TanStack Form. It provides methods to interact with form data, validate fields, and handle form submissions.
+
+## Constructor
+
+```typescript
+new FormApi<TFormData>(options?: FormOptions<TFormData>)
+```
+
+Creates a new FormApi instance with the given form options.
+
+<ParamField path="options" type="FormOptions<TFormData>" optional>
+  Configuration options for the form. See [FormOptions](/api/core/form-options) for details.
+</ParamField>
+
+<ResponseField name="FormApi" type="FormApi<TFormData>">
+  A new FormApi instance
+</ResponseField>
+
+### Example
+
+```typescript
+import { FormApi } from '@tanstack/form-core'
+
+interface FormData {
+  firstName: string
+  lastName: string
+  email: string
+}
+
+const form = new FormApi<FormData>({
+  defaultValues: {
+    firstName: '',
+    lastName: '',
+    email: '',
+  },
+  onSubmit: async ({ value }) => {
+    console.log('Form submitted:', value)
+  },
+})
+```
+
+## Properties
+
+### options
+
+```typescript
+options: FormOptions<TFormData>
+```
+
+The current options for the form.
+
+### state
+
+```typescript
+get state(): FormState<TFormData>
+```
+
+The current state of the form, including values, errors, validation status, and more.
+
+### formId
+
+```typescript
+get formId(): string
+```
+
+A unique identifier for this form instance.
+
+### fieldInfo
+
+```typescript
+fieldInfo: Record<DeepKeys<TFormData>, FieldInfo<TFormData>>
+```
+
+A record containing information about each field in the form.
+
+## Methods
+
+### mount()
+
+Mounts the form and initializes its state. Returns a cleanup function.
+
+```typescript
+mount(): () => void
+```
+
+<ResponseField name="cleanup" type="() => void">
+  A function to call when unmounting the form
+</ResponseField>
+
+#### Example
+
+```typescript
+const cleanup = form.mount()
+
+// Later, when unmounting
+cleanup()
+```
+
+### update()
+
+Updates the form options and form state.
+
+```typescript
+update(options?: FormOptions<TFormData>): void
+```
+
+<ParamField path="options" type="FormOptions<TFormData>" optional>
+  New options to apply to the form
+</ParamField>
+
+#### Example
+
+```typescript
+form.update({
+  defaultValues: {
+    firstName: 'John',
+    lastName: 'Doe',
+    email: 'john@example.com',
+  },
+})
+```
+
+### reset()
+
+Resets the form state to the default values. If values are provided, the form will be reset to those values instead.
+
+```typescript
+reset(values?: TFormData, opts?: { keepDefaultValues?: boolean }): void
+```
+
+<ParamField path="values" type="TFormData" optional>
+  Optional values to reset the form to
+</ParamField>
+
+<ParamField path="opts.keepDefaultValues" type="boolean" optional default={false}>
+  If true, keeps the existing default values instead of updating them
+</ParamField>
+
+#### Example
+
+```typescript
+// Reset to default values
+form.reset()
+
+// Reset to specific values and update defaults
+form.reset({
+  firstName: 'Jane',
+  lastName: 'Smith',
+  email: 'jane@example.com',
+})
+
+// Reset to specific values but keep original defaults
+form.reset(
+  {
+    firstName: 'Jane',
+    lastName: 'Smith',
+    email: 'jane@example.com',
+  },
+  { keepDefaultValues: true }
+)
+```
+
+### handleSubmit()
+
+Handles form submission, performs validation, and calls the appropriate onSubmit or onSubmitInvalid callbacks.
+
+```typescript
+handleSubmit(submitMeta?: TSubmitMeta): Promise<void>
+```
+
+<ParamField path="submitMeta" type="TSubmitMeta" optional>
+  Optional metadata to pass to the submit handlers
+</ParamField>
+
+#### Example
+
+```typescript
+const handleFormSubmit = async (e: FormEvent) => {
+  e.preventDefault()
+  await form.handleSubmit()
+}
+```
+
+### getFieldValue()
+
+Gets the value of a specific field.
+
+```typescript
+getFieldValue<TField extends DeepKeys<TFormData>>(
+  field: TField
+): DeepValue<TFormData, TField>
+```
+
+<ParamField path="field" type="string" required>
+  The field name (supports dot notation for nested fields)
+</ParamField>
+
+<ResponseField name="value" type="any">
+  The current value of the field
+</ResponseField>
+
+#### Example
+
+```typescript
+const firstName = form.getFieldValue('firstName')
+const street = form.getFieldValue('address.street')
+```
+
+### setFieldValue()
+
+Sets the value of a specific field and optionally updates the touched state.
+
+```typescript
+setFieldValue<TField extends DeepKeys<TFormData>>(
+  field: TField,
+  updater: Updater<DeepValue<TFormData, TField>>,
+  opts?: UpdateMetaOptions
+): void
+```
+
+<ParamField path="field" type="string" required>
+  The field name (supports dot notation for nested fields)
+</ParamField>
+
+<ParamField path="updater" type="Updater<T>" required>
+  A value or function that returns the new value
+</ParamField>
+
+<ParamField path="opts.dontUpdateMeta" type="boolean" optional default={false}>
+  If true, does not update field metadata
+</ParamField>
+
+<ParamField path="opts.dontValidate" type="boolean" optional default={false}>
+  If true, does not trigger validation
+</ParamField>
+
+<ParamField path="opts.dontRunListeners" type="boolean" optional default={false}>
+  If true, does not run field listeners
+</ParamField>
+
+#### Example
+
+```typescript
+// Set a value directly
+form.setFieldValue('firstName', 'John')
+
+// Set a value using an updater function
+form.setFieldValue('firstName', (prev) => prev.toUpperCase())
+
+// Set a value without triggering validation
+form.setFieldValue('firstName', 'John', { dontValidate: true })
+```
+
+### getFieldMeta()
+
+Gets the metadata of a specific field.
+
+```typescript
+getFieldMeta<TField extends DeepKeys<TFormData>>(
+  field: TField
+): FieldMeta | undefined
+```
+
+<ParamField path="field" type="string" required>
+  The field name
+</ParamField>
+
+<ResponseField name="meta" type="FieldMeta | undefined">
+  The field metadata including errors, touched state, etc.
+</ResponseField>
+
+#### Example
+
+```typescript
+const meta = form.getFieldMeta('firstName')
+if (meta?.errors.length) {
+  console.log('Field has errors:', meta.errors)
+}
+```
+
+### setFieldMeta()
+
+Updates the metadata of a specific field.
+
+```typescript
+setFieldMeta<TField extends DeepKeys<TFormData>>(
+  field: TField,
+  updater: Updater<FieldMetaBase>
+): void
+```
+
+<ParamField path="field" type="string" required>
+  The field name
+</ParamField>
+
+<ParamField path="updater" type="Updater<FieldMetaBase>" required>
+  A value or function that returns the new metadata
+</ParamField>
+
+### validateField()
+
+Validates a specific field.
+
+```typescript
+validateField<TField extends DeepKeys<TFormData>>(
+  field: TField,
+  cause: ValidationCause
+): ValidationError[] | Promise<ValidationError[]>
+```
+
+<ParamField path="field" type="string" required>
+  The field name to validate
+</ParamField>
+
+<ParamField path="cause" type="'change' | 'blur' | 'submit' | 'mount'" required>
+  The cause of the validation
+</ParamField>
+
+<ResponseField name="errors" type="ValidationError[] | Promise<ValidationError[]>">
+  Array of validation errors (if any)
+</ResponseField>
+
+#### Example
+
+```typescript
+const errors = await form.validateField('email', 'change')
+if (errors.length > 0) {
+  console.log('Validation failed:', errors)
+}
+```
+
+### validateAllFields()
+
+Validates all fields in the form.
+
+```typescript
+validateAllFields(cause: ValidationCause): Promise<ValidationError[]>
+```
+
+<ParamField path="cause" type="'change' | 'blur' | 'submit' | 'mount'" required>
+  The cause of the validation
+</ParamField>
+
+<ResponseField name="errors" type="Promise<ValidationError[]>">
+  Array of all validation errors from all fields
+</ResponseField>
+
+### Array Field Methods
+
+The FormApi provides methods for working with array fields:
+
+#### pushFieldValue()
+
+Pushes a value to an array field.
+
+```typescript
+pushFieldValue<TField extends DeepKeysOfType<TFormData, any[]>>(
+  field: TField,
+  value: TData[number],
+  opts?: UpdateMetaOptions
+): void
+```
+
+#### insertFieldValue()
+
+Inserts a value at a specific index in an array field.
+
+```typescript
+insertFieldValue<TField extends DeepKeysOfType<TFormData, any[]>>(
+  field: TField,
+  index: number,
+  value: TData[number],
+  opts?: UpdateMetaOptions
+): Promise<void>
+```
+
+#### replaceFieldValue()
+
+Replaces a value at a specific index in an array field.
+
+```typescript
+replaceFieldValue<TField extends DeepKeysOfType<TFormData, any[]>>(
+  field: TField,
+  index: number,
+  value: TData[number],
+  opts?: UpdateMetaOptions
+): Promise<void>
+```
+
+#### removeFieldValue()
+
+Removes a value at a specific index from an array field.
+
+```typescript
+removeFieldValue<TField extends DeepKeysOfType<TFormData, any[]>>(
+  field: TField,
+  index: number,
+  opts?: UpdateMetaOptions
+): Promise<void>
+```
+
+#### swapFieldValues()
+
+Swaps two values in an array field.
+
+```typescript
+swapFieldValues<TField extends DeepKeysOfType<TFormData, any[]>>(
+  field: TField,
+  index1: number,
+  index2: number,
+  opts?: UpdateMetaOptions
+): void
+```
+
+#### moveFieldValues()
+
+Moves a value from one index to another in an array field.
+
+```typescript
+moveFieldValues<TField extends DeepKeysOfType<TFormData, any[]>>(
+  field: TField,
+  fromIndex: number,
+  toIndex: number,
+  opts?: UpdateMetaOptions
+): void
+```
+
+#### clearFieldValues()
+
+Clears all values from an array field.
+
+```typescript
+clearFieldValues<TField extends DeepKeysOfType<TFormData, any[]>>(
+  field: TField,
+  opts?: UpdateMetaOptions
+): void
+```
+
+#### Example: Working with Array Fields
+
+```typescript
+interface FormData {
+  todos: Array<{ text: string; completed: boolean }>
+}
+
+const form = new FormApi<FormData>({
+  defaultValues: { todos: [] },
+})
+
+// Add a new todo
+form.pushFieldValue('todos', { text: 'Buy milk', completed: false })
+
+// Insert at specific position
+form.insertFieldValue('todos', 0, { text: 'First todo', completed: false })
+
+// Remove a todo
+form.removeFieldValue('todos', 1)
+
+// Swap todos
+form.swapFieldValues('todos', 0, 1)
+
+// Clear all todos
+form.clearFieldValues('todos')
+```
+
+### deleteField()
+
+Deletes a field and all its subfields from the form.
+
+```typescript
+deleteField<TField extends DeepKeys<TFormData>>(field: TField): void
+```
+
+<ParamField path="field" type="string" required>
+  The field name to delete
+</ParamField>
+
+### resetField()
+
+Resets a field value and metadata to its default state.
+
+```typescript
+resetField<TField extends DeepKeys<TFormData>>(field: TField): void
+```
+
+<ParamField path="field" type="string" required>
+  The field name to reset
+</ParamField>
+
+### setErrorMap()
+
+Updates the form's error map.
+
+```typescript
+setErrorMap(errorMap: FormValidationErrorMap): void
+```
+
+<ParamField path="errorMap" type="FormValidationErrorMap" required>
+  The new error map to set
+</ParamField>
+
+### getAllErrors()
+
+Returns all form and field level errors.
+
+```typescript
+getAllErrors(): {
+  form: { errors: ValidationError[]; errorMap: ValidationErrorMap }
+  fields: Record<string, { errors: ValidationError[]; errorMap: ValidationErrorMap }>
+}
+```
+
+<ResponseField name="errors" type="object">
+  An object containing all form and field errors
+</ResponseField>
+
+#### Example
+
+```typescript
+const allErrors = form.getAllErrors()
+console.log('Form errors:', allErrors.form.errors)
+console.log('Field errors:', allErrors.fields)
+```
+
+## Type Parameters
+
+<ParamField path="TFormData" type="any" required>
+  The TypeScript type of the form data
+</ParamField>
+
+<ParamField path="TOnMount" type="FormValidateOrFn" optional>
+  Type of the onMount validator
+</ParamField>
+
+<ParamField path="TOnChange" type="FormValidateOrFn" optional>
+  Type of the onChange validator
+</ParamField>
+
+<ParamField path="TOnChangeAsync" type="FormAsyncValidateOrFn" optional>
+  Type of the onChangeAsync validator
+</ParamField>
+
+<ParamField path="TOnBlur" type="FormValidateOrFn" optional>
+  Type of the onBlur validator
+</ParamField>
+
+<ParamField path="TOnBlurAsync" type="FormAsyncValidateOrFn" optional>
+  Type of the onBlurAsync validator
+</ParamField>
+
+<ParamField path="TOnSubmit" type="FormValidateOrFn" optional>
+  Type of the onSubmit validator
+</ParamField>
+
+<ParamField path="TOnSubmitAsync" type="FormAsyncValidateOrFn" optional>
+  Type of the onSubmitAsync validator
+</ParamField>
+
+<ParamField path="TSubmitMeta" type="any" optional default="never">
+  Type of the submission metadata
+</ParamField>
+
+## See Also
+
+- [FormOptions](/api/core/form-options) - Configuration options for forms
+- [FieldApi](/api/core/field-api) - API for managing individual fields
+- [Validators](/api/core/validators) - Validation functions and types

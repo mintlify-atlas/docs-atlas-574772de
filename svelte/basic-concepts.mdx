@@ -1,0 +1,346 @@
+---
+title: Basic Concepts
+description: Learn the fundamental concepts of TanStack Form in Svelte
+---
+
+This page introduces the basic concepts and terminology used in `@tanstack/svelte-form`. Understanding these concepts will help you work effectively with forms in Svelte.
+
+## Form Options
+
+You can create reusable form options using the `formOptions` function. This allows you to share configuration between multiple forms:
+
+```ts
+import { formOptions } from '@tanstack/svelte-form'
+
+const formOpts = formOptions({
+  defaultValues: {
+    firstName: '',
+    lastName: '',
+    hobbies: [],
+  } as Person,
+})
+```
+
+## Form Instance
+
+A form instance represents an individual form and provides methods for managing form state. You create a form instance using the `createForm` function.
+
+### Creating a Form Instance
+
+The `createForm` function returns a reactive Svelte store that automatically updates your UI:
+
+```ts
+import { createForm } from '@tanstack/svelte-form'
+
+const form = createForm(() => ({
+  defaultValues: {
+    firstName: '',
+    lastName: '',
+    hobbies: [],
+  },
+  onSubmit: async ({ value }) => {
+    // Do something with form data
+    console.log(value)
+  },
+}))
+```
+
+### Using Form Options
+
+You can create a form instance from previously defined form options:
+
+```ts
+const form = createForm(() => ({
+  ...formOpts,
+  onSubmit: async ({ value }) => {
+    console.log(value)
+  },
+}))
+```
+
+Or without form options:
+
+```ts
+const form = createForm<Person>(() => ({
+  onSubmit: async ({ value }) => {
+    console.log(value)
+  },
+  defaultValues: {
+    firstName: '',
+    lastName: '',
+    hobbies: [],
+  },
+}))
+```
+
+## Field
+
+A field represents a single form input element. Fields are created using the `form.Field` component with Svelte's snippet syntax.
+
+### Creating a Field
+
+The `form.Field` component accepts a `name` prop and a `children` snippet that receives a field object:
+
+```svelte
+<form.Field name="firstName">
+  {#snippet children(field)}
+    <input
+      name={field.name}
+      value={field.state.value}
+      onblur={field.handleBlur}
+      oninput={(e) => field.handleChange(e.target.value)}
+    />
+  {/snippet}
+</form.Field>
+```
+
+### Field API Methods
+
+The field object provides methods to interact with the field:
+
+- `field.handleChange(value)` - Update the field's value
+- `field.handleBlur()` - Mark the field as blurred
+- `field.state.value` - Get the current field value
+- `field.pushValue(item)` - Add an item to an array field
+- `field.removeValue(index)` - Remove an item from an array field
+- `field.insertValue(index, item)` - Insert an item at a specific position
+- `field.replaceValue(index, item)` - Replace an item
+- `field.swapValues(indexA, indexB)` - Swap two items
+- `field.moveValue(from, to)` - Move an item to a different position
+
+## Field State
+
+Each field maintains its own state accessible via `field.state`:
+
+```ts
+const {
+  value,
+  meta: { errors, isValidating },
+} = field.state
+```
+
+### Field Metadata
+
+The metadata tracks user interaction with the field:
+
+- **`isTouched`** - Set after the user changes or blurs the field
+- **`isDirty`** - Set after the field's value has been changed, even if reverted to default (opposite of `isPristine`)
+- **`isPristine`** - True until the user changes the field value (opposite of `isDirty`)
+- **`isBlurred`** - Set after the field has been blurred
+
+```ts
+const { isTouched, isDirty, isPristine, isBlurred } = field.state.meta
+```
+
+![Field states diagram showing the transitions between pristine, dirty, touched, and blurred states](https://raw.githubusercontent.com/TanStack/form/main/docs/assets/field-states.png)
+
+### Understanding isDirty
+
+TanStack Form uses a **persistent** `dirty` state model:
+
+- A field becomes `isDirty: true` when its value changes
+- It remains `isDirty: true` even if you revert to the default value
+- This matches the behavior of Angular Forms and Vue FormKit
+
+For a **non-persistent** dirty check (like React Hook Form or Formik), use the `isDefaultValue` flag:
+
+```ts
+const { isDefaultValue, isTouched } = field.state.meta
+
+// Non-persistent dirty check
+const nonPersistentIsDirty = !isDefaultValue
+```
+
+![Extended field states diagram showing the relationship between isDirty and isDefaultValue](https://raw.githubusercontent.com/TanStack/form/main/docs/assets/field-states-extended.png)
+
+## Validation
+
+Fields support both synchronous and asynchronous validation through the `validators` prop:
+
+```svelte
+<form.Field
+  name="firstName"
+  validators={{
+    onChange: ({ value }) =>
+      !value
+        ? 'A first name is required'
+        : value.length < 3
+          ? 'First name must be at least 3 characters'
+          : undefined,
+    onChangeAsync: async ({ value }) => {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      return value.includes('error') && 'No "error" allowed in first name'
+    },
+  }}
+>
+  {#snippet children(field)}
+    <input
+      name={field.name}
+      value={field.state.value}
+      onblur={field.handleBlur}
+      oninput={(e) => field.handleChange(e.target.value)}
+    />
+    <p>{field.state.meta.errors[0]}</p>
+  {/snippet}
+</form.Field>
+```
+
+## Schema Validation
+
+TanStack Form supports [Standard Schema](https://github.com/standard-schema/standard-schema) libraries:
+
+- [Zod](https://zod.dev/) (v3.24.0 or higher)
+- [Valibot](https://valibot.dev/) (v1.0.0 or higher)
+- [ArkType](https://arktype.io/) (v2.1.20 or higher)
+- [Yup](https://github.com/jquense/yup) (v1.7.0 or higher)
+
+```svelte
+<script>
+  import { z } from 'zod'
+  // ...
+</script>
+
+<form.Field
+  name="firstName"
+  validators={{
+    onChange: z.string().min(3, 'First name must be at least 3 characters'),
+    onChangeAsyncDebounceMs: 500,
+    onChangeAsync: z.string().refine(
+      async (value) => {
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+        return !value.includes('error')
+      },
+      {
+        message: 'No "error" allowed in first name',
+      },
+    ),
+  }}
+>
+  {#snippet children(field)}
+    <input
+      name={field.name}
+      value={field.state.value}
+      onblur={field.handleBlur}
+      oninput={(e) => field.handleChange(e.target.value)}
+    />
+    <p>{field.state.meta.errors[0]}</p>
+  {/snippet}
+</form.Field>
+```
+
+## Reactivity with useStore
+
+The `form.useStore` hook allows you to subscribe to specific form state for optimized rendering:
+
+```svelte
+<script>
+  import { createForm } from '@tanstack/svelte-form'
+
+  const form = createForm(() => ({
+    // ...
+  }))
+
+  const firstName = form.useStore((state) => state.values.firstName)
+</script>
+
+<div>First name: {$firstName}</div>
+```
+
+## Subscribe Component
+
+The `form.Subscribe` component provides another way to subscribe to form state:
+
+```svelte
+<form.Subscribe
+  selector={(state) => ({
+    canSubmit: state.canSubmit,
+    isSubmitting: state.isSubmitting,
+  })}
+>
+  {#snippet children(state)}
+    <button type="submit" disabled={!state.canSubmit}>
+      {state.isSubmitting ? '...' : 'Submit'}
+    </button>
+  {/snippet}
+</form.Subscribe>
+```
+
+This component only re-renders when the selected state changes, optimizing performance.
+
+## Array Fields
+
+Manage lists of values using array fields with `mode="array"`:
+
+```svelte
+<form.Field name="hobbies" mode="array">
+  {#snippet children(hobbiesField)}
+    <div>
+      Hobbies
+      <div>
+        {#each hobbiesField.state.value as _, i}
+          <div>
+            <form.Field name={`hobbies[${i}].name`}>
+              {#snippet children(field)}
+                <div>
+                  <label for={field.name}>Name:</label>
+                  <input
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onblur={field.handleBlur}
+                    onchange={(e) => field.handleChange(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onclick={() => hobbiesField.removeValue(i)}
+                  >
+                    X
+                  </button>
+                </div>
+              {/snippet}
+            </form.Field>
+          </div>
+        {:else}
+          No hobbies found.
+        {/each}
+      </div>
+      <button
+        type="button"
+        onclick={() =>
+          hobbiesField.pushValue({
+            name: '',
+            description: '',
+          })
+        }
+      >
+        Add hobby
+      </button>
+    </div>
+  {/snippet}
+</form.Field>
+```
+
+## Form State
+
+Access global form state to control submission and display form-level information:
+
+```svelte
+<script>
+  const form = createForm(() => ({
+    // ...
+  }))
+
+  const canSubmit = form.useStore((state) => state.canSubmit)
+  const isSubmitting = form.useStore((state) => state.isSubmitting)
+</script>
+
+<button type="submit" disabled={!$canSubmit}>
+  {$isSubmitting ? 'Submitting...' : 'Submit'}
+</button>
+```
+
+## Next Steps
+
+- Learn about [Form Validation](/svelte/validation) techniques
+- Explore [Array Fields](/svelte/arrays) in depth
+- Check the [API Reference](/api/vue/use-form) for complete documentation

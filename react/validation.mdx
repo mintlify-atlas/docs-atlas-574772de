@@ -1,0 +1,538 @@
+---
+title: Form Validation
+description: Comprehensive guide to form and field validation in TanStack Form
+---
+
+At the core of TanStack Form's functionality is the concept of validation. TanStack Form makes validation highly customizable:
+
+- Control when to perform validation (onChange, onInput, onBlur, onSubmit, etc.)
+- Define validation rules at the field-level or form-level
+- Use synchronous or asynchronous validation
+
+## When is Validation Performed?
+
+You control when validation runs by implementing callbacks on the `form.Field` component.
+
+### Validate on Change
+
+```tsx
+<form.Field
+  name="age"
+  validators={{
+    onChange: ({ value }) =>
+      value < 13 ? 'You must be 13 to make an account' : undefined,
+  }}
+>
+  {(field) => (
+    <>
+      <label htmlFor={field.name}>Age:</label>
+      <input
+        id={field.name}
+        name={field.name}
+        value={field.state.value}
+        type="number"
+        onChange={(e) => field.handleChange(e.target.valueAsNumber)}
+      />
+      {!field.state.meta.isValid && (
+        <em role="alert">{field.state.meta.errors.join(', ')}</em>
+      )}
+    </>
+  )}
+</form.Field>
+```
+
+### Validate on Blur
+
+```tsx
+<form.Field
+  name="age"
+  validators={{
+    onBlur: ({ value }) =>
+      value < 13 ? 'You must be 13 to make an account' : undefined,
+  }}
+>
+  {(field) => (
+    <>
+      <label htmlFor={field.name}>Age:</label>
+      <input
+        id={field.name}
+        name={field.name}
+        value={field.state.value}
+        type="number"
+        onBlur={field.handleBlur}
+        onChange={(e) => field.handleChange(e.target.valueAsNumber)}
+      />
+      {!field.state.meta.isValid && (
+        <em role="alert">{field.state.meta.errors.join(', ')}</em>
+      )}
+    </>
+  )}
+</form.Field>
+```
+
+### Multiple Validators
+
+You can perform different validation at different times:
+
+```tsx
+<form.Field
+  name="age"
+  validators={{
+    onChange: ({ value }) =>
+      value < 13 ? 'You must be 13 to make an account' : undefined,
+    onBlur: ({ value }) => (value < 0 ? 'Invalid value' : undefined),
+  }}
+>
+  {(field) => (
+    <>
+      <label htmlFor={field.name}>Age:</label>
+      <input
+        id={field.name}
+        name={field.name}
+        value={field.state.value}
+        type="number"
+        onBlur={field.handleBlur}
+        onChange={(e) => field.handleChange(e.target.valueAsNumber)}
+      />
+      {!field.state.meta.isValid && (
+        <em role="alert">{field.state.meta.errors.join(', ')}</em>
+      )}
+    </>
+  )}
+</form.Field>
+```
+
+Since `field.state.meta.errors` is an array, all relevant errors are displayed. Use `field.state.meta.errorMap` to get errors based on when validation was performed.
+
+## Displaying Errors
+
+### Using the Errors Array
+
+```tsx
+<form.Field
+  name="age"
+  validators={{
+    onChange: ({ value }) =>
+      value < 13 ? 'You must be 13 to make an account' : undefined,
+  }}
+>
+  {(field) => (
+    <>
+      {/* ... */}
+      {!field.state.meta.isValid && (
+        <em>{field.state.meta.errors.join(',')}</em>
+      )}
+    </>
+  )}
+</form.Field>
+```
+
+### Using the Error Map
+
+```tsx
+<form.Field
+  name="age"
+  validators={{
+    onChange: ({ value }) =>
+      value < 13 ? 'You must be 13 to make an account' : undefined,
+  }}
+>
+  {(field) => (
+    <>
+      {/* ... */}
+      {field.state.meta.errorMap['onChange'] ? (
+        <em>{field.state.meta.errorMap['onChange']}</em>
+      ) : null}
+    </>
+  )}
+</form.Field>
+```
+
+### Custom Error Types
+
+The `errors` array and `errorMap` match the types returned by validators:
+
+```tsx
+<form.Field
+  name="age"
+  validators={{
+    onChange: ({ value }) => (value < 13 ? { isOldEnough: false } : undefined),
+  }}
+>
+  {(field) => (
+    <>
+      {/* errorMap.onChange is type `{isOldEnough: false} | undefined` */}
+      {!field.state.meta.errorMap['onChange']?.isOldEnough ? (
+        <em>The user is not old enough</em>
+      ) : null}
+    </>
+  )}
+</form.Field>
+```
+
+## Field-Level vs Form-Level Validation
+
+You can define validation rules at the form level instead of field-by-field.
+
+```tsx
+function App() {
+  const form = useForm({
+    defaultValues: {
+      age: 0,
+    },
+    onSubmit: async ({ value }) => {
+      console.log(value)
+    },
+    validators: {
+      onChange({ value }) {
+        if (value.age < 13) {
+          return 'Must be 13 or older to sign'
+        }
+        return undefined
+      },
+    },
+  })
+
+  const formErrorMap = useStore(form.store, (state) => state.errorMap)
+
+  return (
+    <div>
+      {formErrorMap.onChange ? (
+        <div>
+          <em>There was an error on the form: {formErrorMap.onChange}</em>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+```
+
+### Setting Field Errors from Form Validators
+
+You can set errors on specific fields from form-level validators:
+
+```tsx
+const form = useForm({
+  defaultValues: {
+    age: 0,
+    socials: [],
+    details: {
+      email: '',
+    },
+  },
+  validators: {
+    onSubmitAsync: async ({ value }) => {
+      const hasErrors = await verifyDataOnServer(value)
+      if (hasErrors) {
+        return {
+          form: 'Invalid data',
+          fields: {
+            age: 'Must be 13 or older to sign',
+            'socials[0].url': 'The provided URL does not exist',
+            'details.email': 'An email is required',
+          },
+        }
+      }
+      return null
+    },
+  },
+})
+```
+
+<Warning>
+Field-level validation will overwrite form-level validation errors for the same field.
+</Warning>
+
+## Asynchronous Validation
+
+Use dedicated async validators for network calls or other async operations:
+
+```tsx
+<form.Field
+  name="age"
+  validators={{
+    onChangeAsync: async ({ value }) => {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      return value < 13 ? 'You must be 13 to make an account' : undefined
+    },
+  }}
+>
+  {(field) => (
+    <>
+      <label htmlFor={field.name}>Age:</label>
+      <input
+        id={field.name}
+        name={field.name}
+        value={field.state.value}
+        type="number"
+        onChange={(e) => field.handleChange(e.target.valueAsNumber)}
+      />
+      {field.state.meta.isValidating && <span>Validating...</span>}
+      {!field.state.meta.isValid && (
+        <em role="alert">{field.state.meta.errors.join(', ')}</em>
+      )}
+    </>
+  )}
+</form.Field>
+```
+
+### Combining Sync and Async Validators
+
+```tsx
+<form.Field
+  name="age"
+  validators={{
+    onBlur: ({ value }) => (value < 13 ? 'You must be at least 13' : undefined),
+    onBlurAsync: async ({ value }) => {
+      const currentAge = await fetchCurrentAgeOnProfile()
+      return value < currentAge ? 'You can only increase the age' : undefined
+    },
+  }}
+>
+  {(field) => (
+    <>
+      <label htmlFor={field.name}>Age:</label>
+      <input
+        id={field.name}
+        name={field.name}
+        value={field.state.value}
+        type="number"
+        onBlur={field.handleBlur}
+        onChange={(e) => field.handleChange(e.target.valueAsNumber)}
+      />
+      {!field.state.meta.isValid && (
+        <em role="alert">{field.state.meta.errors.join(', ')}</em>
+      )}
+    </>
+  )}
+</form.Field>
+```
+
+The synchronous validator runs first, and the async validator only runs if the sync one succeeds. Set `asyncAlways: true` to always run async validation.
+
+### Built-in Debouncing
+
+Debounce async validation to avoid excessive network requests:
+
+```tsx
+<form.Field
+  name="age"
+  asyncDebounceMs={500}
+  validators={{
+    onChangeAsync: async ({ value }) => {
+      // Debounced by 500ms
+    },
+  }}
+  children={(field) => <>{/* ... */}</>}
+/>
+```
+
+Override debounce per validator:
+
+```tsx
+<form.Field
+  name="age"
+  asyncDebounceMs={500}
+  validators={{
+    onChangeAsyncDebounceMs: 1500,
+    onChangeAsync: async ({ value }) => {
+      // Debounced by 1500ms
+    },
+    onBlurAsync: async ({ value }) => {
+      // Debounced by 500ms
+    },
+  }}
+  children={(field) => <>{/* ... */}</>}
+/>
+```
+
+## Schema-Based Validation
+
+TanStack Form supports all libraries following the [Standard Schema specification](https://github.com/standard-schema/standard-schema).
+
+<Tabs>
+  <Tab title="Zod">
+    ```tsx
+    import { z } from 'zod'
+    
+    const userSchema = z.object({
+      age: z.number().gte(13, 'You must be 13 to make an account'),
+    })
+    
+    function App() {
+      const form = useForm({
+        defaultValues: {
+          age: 0,
+        },
+        validators: {
+          onChange: userSchema,
+        },
+      })
+      return (
+        <div>
+          <form.Field
+            name="age"
+            children={(field) => {
+              return <>{/* ... */}</>
+            }}
+          />
+        </div>
+      )
+    }
+    ```
+  </Tab>
+  <Tab title="Valibot">
+    ```tsx
+    import * as v from 'valibot'
+    
+    const userSchema = v.object({
+      age: v.pipe(v.number(), v.minValue(13, 'You must be 13 to make an account')),
+    })
+    
+    function App() {
+      const form = useForm({
+        defaultValues: {
+          age: 0,
+        },
+        validators: {
+          onChange: userSchema,
+        },
+      })
+      return (
+        <div>
+          <form.Field name="age" />
+        </div>
+      )
+    }
+    ```
+  </Tab>
+  <Tab title="Yup">
+    ```tsx
+    import * as yup from 'yup'
+    
+    const userSchema = yup.object({
+      age: yup.number().min(13, 'You must be 13 to make an account'),
+    })
+    
+    function App() {
+      const form = useForm({
+        defaultValues: {
+          age: 0,
+        },
+        validators: {
+          onChange: userSchema,
+        },
+      })
+      return (
+        <div>
+          <form.Field name="age" />
+        </div>
+      )
+    }
+    ```
+  </Tab>
+  <Tab title="ArkType">
+    ```tsx
+    import { type } from 'arktype'
+    
+    const userSchema = type({
+      'age>=': [13, '@must be 13 to make an account'],
+    })
+    
+    function App() {
+      const form = useForm({
+        defaultValues: {
+          age: 0,
+        },
+        validators: {
+          onChange: userSchema,
+        },
+      })
+      return (
+        <div>
+          <form.Field name="age" />
+        </div>
+      )
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Async Schema Validation
+
+```tsx
+<form.Field
+  name="age"
+  validators={{
+    onChange: z.number().gte(13, 'You must be 13 to make an account'),
+    onChangeAsyncDebounceMs: 500,
+    onChangeAsync: z.number().refine(
+      async (value) => {
+        const currentAge = await fetchCurrentAgeOnProfile()
+        return value >= currentAge
+      },
+      {
+        message: 'You can only increase the age',
+      },
+    ),
+  }}
+  children={(field) => {
+    return <>{/* ... */}</>
+  }}
+/>
+```
+
+### Combining Schema with Callbacks
+
+For more control, combine schemas with callback functions:
+
+```tsx
+<form.Field
+  name="age"
+  asyncDebounceMs={500}
+  validators={{
+    onChangeAsync: async ({ value, fieldApi }) => {
+      const errors = fieldApi.parseValueWithSchema(
+        z.number().gte(13, 'You must be 13 to make an account'),
+      )
+      if (errors) return errors
+      // Continue with additional validation
+    },
+  }}
+  children={(field) => {
+    return <>{/* ... */}</>
+  }}
+/>
+```
+
+## Preventing Invalid Form Submission
+
+The form state has a `canSubmit` flag that is `false` when any field is invalid and the form has been touched.
+
+```tsx
+const form = useForm(/* ... */)
+
+return (
+  <form.Subscribe
+    selector={(state) => [state.canSubmit, state.isSubmitting]}
+    children={([canSubmit, isSubmitting]) => (
+      <button type="submit" disabled={!canSubmit}>
+        {isSubmitting ? '...' : 'Submit'}
+      </button>
+    )}
+  />
+)
+```
+
+To prevent submission before any interaction, combine `canSubmit` with `isPristine`:
+
+```tsx
+<form.Subscribe
+  selector={(state) => [state.canSubmit, state.isPristine, state.isSubmitting]}
+  children={([canSubmit, isPristine, isSubmitting]) => (
+    <button type="submit" disabled={!canSubmit || isPristine}>
+      {isSubmitting ? '...' : 'Submit'}
+    </button>
+  )}
+/>
+```

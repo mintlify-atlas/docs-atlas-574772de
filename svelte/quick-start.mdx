@@ -1,0 +1,276 @@
+---
+title: Quick Start
+description: Get started with TanStack Form in Svelte
+---
+
+Get started with TanStack Form in Svelte by creating a form instance and connecting it to your form fields.
+
+## Installation
+
+Install the Svelte adapter for TanStack Form:
+
+```bash
+npm install @tanstack/svelte-form
+```
+
+## Your First Form
+
+The bare minimum to get started is to create a form and add a field using `createForm`.
+
+<Steps>
+
+### Create a Form Instance
+
+Use `createForm` to create a form instance with default values and a submit handler:
+
+```svelte
+<script>
+  import { createForm } from '@tanstack/svelte-form'
+
+  const form = createForm(() => ({
+    defaultValues: {
+      fullName: '',
+    },
+    onSubmit: async ({ value }) => {
+      // Do something with form data
+      console.log(value)
+    },
+  }))
+</script>
+```
+
+The `createForm` function returns a reactive form store that automatically updates your UI when form state changes.
+
+### Create the Form Element
+
+Create a form element that handles submission:
+
+```svelte
+<form
+  onsubmit={(e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    form.handleSubmit()
+  }}
+>
+  <!-- Fields will go here -->
+</form>
+```
+
+### Add a Field
+
+Use the `form.Field` component with Svelte's snippet syntax to create form fields:
+
+```svelte
+<form.Field name="fullName">
+  {#snippet children(field)}
+    <input
+      name={field.name}
+      value={field.state.value}
+      onblur={field.handleBlur}
+      oninput={(e) => field.handleChange(e.target.value)}
+    />
+  {/snippet}
+</form.Field>
+```
+
+</Steps>
+
+## Complete Example
+
+Here's a complete working form with validation:
+
+```svelte
+<script>
+  import { createForm } from '@tanstack/svelte-form'
+
+  const form = createForm(() => ({
+    defaultValues: {
+      fullName: '',
+    },
+    onSubmit: async ({ value }) => {
+      console.log(value)
+    },
+  }))
+</script>
+
+<div>
+  <h1>Simple Form Example</h1>
+  <form
+    onsubmit={(e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      form.handleSubmit()
+    }}
+  >
+    <div>
+      <form.Field name="fullName">
+        {#snippet children(field)}
+          <input
+            name={field.name}
+            value={field.state.value}
+            onblur={field.handleBlur}
+            oninput={(e) => field.handleChange(e.target.value)}
+          />
+        {/snippet}
+      </form.Field>
+    </div>
+    <button type="submit">Submit</button>
+  </form>
+</div>
+```
+
+## Example with Multiple Fields
+
+Here's a more complete example with multiple fields and validation:
+
+```svelte
+<script lang="ts">
+  import { createForm } from '@tanstack/svelte-form'
+
+  const form = createForm(() => ({
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+      employed: false,
+      jobTitle: '',
+    },
+    onSubmit: async ({ value }) => {
+      alert(JSON.stringify(value))
+    },
+  }))
+</script>
+
+<form
+  id="form"
+  onsubmit={(e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    form.handleSubmit()
+  }}
+>
+  <h1>TanStack Form - Svelte Demo</h1>
+
+  <form.Field
+    name="firstName"
+    validators={{
+      onChange: ({ value }) =>
+        value.length < 3 ? 'Not long enough' : undefined,
+    }}
+  >
+    {#snippet children(field)}
+      <div>
+        <label for={field.name}>First Name</label>
+        <input
+          id={field.name}
+          type="text"
+          placeholder="First Name"
+          value={field.state.value}
+          onblur={() => field.handleBlur()}
+          oninput={(e: Event) => {
+            const target = e.target as HTMLInputElement
+            field.handleChange(target.value)
+          }}
+        />
+        {#if field.state.meta.errors}
+          <em>{field.state.meta.errors[0]}</em>
+        {/if}
+      </div>
+    {/snippet}
+  </form.Field>
+
+  <form.Field
+    name="lastName"
+    validators={{
+      onChange: ({ value }) =>
+        value.length < 3 ? 'Not long enough' : undefined,
+    }}
+  >
+    {#snippet children(field)}
+      <div>
+        <label for={field.name}>Last Name</label>
+        <input
+          id={field.name}
+          type="text"
+          placeholder="Last Name"
+          value={field.state.value}
+          onblur={() => field.handleBlur()}
+          oninput={(e: Event) => {
+            const target = e.target as HTMLInputElement
+            field.handleChange(target.value)
+          }}
+        />
+        {#if field.state.meta.errors}
+          <em>{field.state.meta.errors[0]}</em>
+        {/if}
+      </div>
+    {/snippet}
+  </form.Field>
+
+  <div>
+    <form.Subscribe
+      selector={(state) => ({
+        canSubmit: state.canSubmit,
+        isSubmitting: state.isSubmitting,
+      })}
+    >
+      {#snippet children({ canSubmit, isSubmitting })}
+        <button type="submit" disabled={!canSubmit}>
+          {isSubmitting ? 'Submitting' : 'Submit'}
+        </button>
+      {/snippet}
+    </form.Subscribe>
+    <button type="button" onclick={() => form.reset()}>
+      Reset
+    </button>
+  </div>
+</form>
+```
+
+## Key Concepts
+
+### Form Instance
+
+The form instance returned by `createForm` is a reactive Svelte store that provides:
+
+- `form.Field` - Component for creating form fields
+- `form.Subscribe` - Component for subscribing to form state
+- `form.handleSubmit()` - Method to submit the form
+- `form.reset()` - Method to reset the form to default values
+- `form.useStore()` - Hook to subscribe to specific form state
+
+### Field Component
+
+The `form.Field` component uses Svelte's snippet syntax and provides:
+
+- `field.state.value` - Current field value
+- `field.handleChange()` - Update field value
+- `field.handleBlur()` - Mark field as blurred
+- `field.state.meta` - Field metadata (errors, touched, dirty, etc.)
+
+### Subscribe Component
+
+The `form.Subscribe` component lets you subscribe to specific form state to optimize rendering:
+
+```svelte
+<form.Subscribe
+  selector={(state) => ({
+    canSubmit: state.canSubmit,
+    isSubmitting: state.isSubmitting,
+  })}
+>
+  {#snippet children(state)}
+    <button type="submit" disabled={!state.canSubmit}>
+      {state.isSubmitting ? '...' : 'Submit'}
+    </button>
+  {/snippet}
+</form.Subscribe>
+```
+
+## Next Steps
+
+Now that you have a basic form working, explore more advanced features:
+
+- Learn about [Basic Concepts](/svelte/basic-concepts) like form options and field state
+- Implement [Form Validation](/svelte/validation) with custom validators or schema libraries
+- Manage [Array Fields](/svelte/arrays) for dynamic lists of items

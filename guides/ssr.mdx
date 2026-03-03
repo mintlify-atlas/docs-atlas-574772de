@@ -1,0 +1,491 @@
+---
+title: Server-Side Rendering
+description: Learn how to use TanStack Form with Next.js, Remix, and TanStack Start for server-side rendering and server actions
+---
+
+TanStack Form is compatible with React out of the box, supporting SSR and being framework-agnostic. However, specific configurations are necessary according to your chosen framework.
+
+Today we support the following meta-frameworks:
+
+- [TanStack Start](https://tanstack.com/start/)
+- [Next.js](https://nextjs.org/)
+- [Remix](https://remix.run)
+
+## TanStack Start Integration
+
+TanStack Start provides first-class integration with TanStack Form, including server-side validation.
+
+### Prerequisites
+
+- Start a new TanStack Start project following the [TanStack Start Quickstart Guide](https://tanstack.com/router/latest/docs/framework/react/guide/tanstack-start)
+- Install `@tanstack/react-form`
+
+### Setup
+
+First, create a `formOptions` to share the form's shape across client and server:
+
+```typescript
+// app/routes/index.tsx
+import { formOptions } from '@tanstack/react-form-start'
+
+export const formOpts = formOptions({
+  defaultValues: {
+    firstName: '',
+    age: 0,
+  },
+})
+```
+
+### Server Validation
+
+Create a [Start Server Function](https://tanstack.com/start/latest/docs/framework/react/server-functions) to handle form submission:
+
+```typescript
+// app/routes/index.tsx
+import {
+  createServerValidate,
+  ServerValidateError,
+} from '@tanstack/react-form-start'
+import { createServerFn } from '@tanstack/start'
+
+const serverValidate = createServerValidate({
+  ...formOpts,
+  onServerValidate: ({ value }) => {
+    if (value.age < 12) {
+      return 'Server validation: You must be at least 12 to sign up'
+    }
+  },
+})
+
+export const handleForm = createServerFn({
+  method: 'POST',
+})
+  .inputValidator((data: unknown) => {
+    if (!(data instanceof FormData)) {
+      throw new Error('Invalid form data')
+    }
+    return data
+  })
+  .handler(async (ctx) => {
+    try {
+      const validatedData = await serverValidate(ctx.data)
+      console.log('validatedData', validatedData)
+      // Persist to database
+      // await db.insert(validatedData)
+    } catch (e) {
+      if (e instanceof ServerValidateError) {
+        return e.response
+      }
+      console.error(e)
+      setResponseStatus(500)
+      return 'There was an internal error'
+    }
+
+    return 'Form has validated successfully'
+  })
+```
+
+### Server Data Loader
+
+Create a server function to retrieve form data:
+
+```typescript
+// app/routes/index.tsx
+import { getFormData } from '@tanstack/react-form-start'
+
+export const getFormDataFromServer = createServerFn({ method: 'GET' }).handler(
+  async () => {
+    return getFormData()
+  },
+)
+```
+
+### Client Component
+
+Use the server data in your client component:
+
+```tsx
+// app/routes/index.tsx
+import {
+  createFileRoute,
+  mergeForm,
+  useForm,
+  useStore,
+  useTransform,
+} from '@tanstack/react-form-start'
+
+export const Route = createFileRoute('/')({  
+  component: Home,
+  loader: async () => ({
+    state: await getFormDataFromServer(),
+  }),
+})
+
+function Home() {
+  const { state } = Route.useLoaderData()
+  const form = useForm({
+    ...formOpts,
+    transform: useTransform((baseForm) => mergeForm(baseForm, state), [state]),
+  })
+
+  const formErrors = useStore(form.store, (formState) => formState.errors)
+
+  return (
+    <form action={handleForm.url} method="post" encType="multipart/form-data">
+      {formErrors.map((error) => (
+        <p key={error as string} style={{ color: 'red' }}>
+          {error}
+        </p>
+      ))}
+
+      <form.Field
+        name="age"
+        validators={{
+          onChange: ({ value }) =>
+            value < 8 ? 'Client validation: You must be at least 8' : undefined,
+        }}
+      >
+        {(field) => (
+          <div>
+            <label htmlFor={field.name}>Age</label>
+            <input
+              id={field.name}
+              name={field.name}
+              type="number"
+              value={field.state.value}
+              onChange={(e) => field.handleChange(e.target.valueAsNumber)}
+            />
+            {field.state.meta.errors.map((error) => (
+              <p key={error as string} style={{ color: 'red' }}>
+                {error}
+              </p>
+            ))}
+          </div>
+        )}
+      </form.Field>
+
+      <form.Subscribe
+        selector={(formState) => [formState.canSubmit, formState.isSubmitting]}
+      >
+        {([canSubmit, isSubmitting]) => (
+          <button type="submit" disabled={!canSubmit}>
+            {isSubmitting ? '...' : 'Submit'}
+          </button>
+        )}
+      </form.Subscribe>
+    </form>
+  )
+}
+```
+
+<Tip>
+  TanStack Start's integration allows both client-side and server-side validation, giving you the best of both worlds.
+</Tip>
+
+## Next.js App Router Integration
+
+<Warning>
+  Before reading this section, make sure you understand [React Server Components and Server Actions](https://playfulprogramming.com/collections/react-beyond-the-render).
+</Warning>
+
+### Prerequisites
+
+- Start a new Next.js project following the [Next.js Documentation](https://nextjs.org/docs/getting-started/installation)
+- Select "yes" for "Would you like to use App Router?"
+- Install `@tanstack/react-form`
+- Optionally install a [form validator](/react/validation)
+
+### Shared Form Options
+
+Create a shared configuration file:
+
+```typescript
+// shared-code.ts
+import { formOptions } from '@tanstack/react-form-nextjs'
+
+export const formOpts = formOptions({
+  defaultValues: {
+    firstName: '',
+    age: 0,
+  },
+})
+```
+
+<Warning>
+  Notice the import path is `@tanstack/react-form-nextjs` for server-side code, not `@tanstack/react-form`. This is a Next.js-specific requirement.
+</Warning>
+
+### Server Action
+
+Create a [React Server Action](https://react.dev/reference/rsc/server-actions):
+
+```typescript
+// action.ts
+'use server'
+
+import {
+  ServerValidateError,
+  createServerValidate,
+} from '@tanstack/react-form-nextjs'
+import { formOpts } from './shared-code'
+
+const serverValidate = createServerValidate({
+  ...formOpts,
+  onServerValidate: ({ value }) => {
+    if (value.age < 12) {
+      return 'Server validation: You must be at least 12 to sign up'
+    }
+  },
+})
+
+export default async function someAction(prev: unknown, formData: FormData) {
+  try {
+    const validatedData = await serverValidate(formData)
+    console.log('validatedData', validatedData)
+    // Persist to database
+    // await db.insert(validatedData)
+  } catch (e) {
+    if (e instanceof ServerValidateError) {
+      return e.formState
+    }
+    throw e
+  }
+
+  // Form validated successfully!
+}
+```
+
+### Client Component
+
+```tsx
+// client-component.tsx
+'use client'
+
+import { useActionState } from 'react'
+import {
+  initialFormState,
+  mergeForm,
+  useForm,
+  useStore,
+  useTransform,
+} from '@tanstack/react-form-nextjs'
+import someAction from './action'
+import { formOpts } from './shared-code'
+
+export const ClientComp = () => {
+  const [state, action] = useActionState(someAction, initialFormState)
+
+  const form = useForm({
+    ...formOpts,
+    transform: useTransform((baseForm) => mergeForm(baseForm, state!), [state]),
+  })
+
+  const formErrors = useStore(form.store, (formState) => formState.errors)
+
+  return (
+    <form action={action as never} onSubmit={() => form.handleSubmit()}>
+      {formErrors.map((error) => (
+        <p key={error as string} style={{ color: 'red' }}>
+          {error}
+        </p>
+      ))}
+
+      <form.Field
+        name="age"
+        validators={{
+          onChange: ({ value }) =>
+            value < 8 ? 'Client validation: You must be at least 8' : undefined,
+        }}
+      >
+        {(field) => (
+          <div>
+            <label htmlFor={field.name}>Age</label>
+            <input
+              id={field.name}
+              name={field.name} // Must explicitly set name for POST request
+              type="number"
+              value={field.state.value}
+              onChange={(e) => field.handleChange(e.target.valueAsNumber)}
+            />
+            {field.state.meta.errors.map((error) => (
+              <p key={error as string} style={{ color: 'red' }}>
+                {error}
+              </p>
+            ))}
+          </div>
+        )}
+      </form.Field>
+
+      <form.Subscribe
+        selector={(formState) => [formState.canSubmit, formState.isSubmitting]}
+      >
+        {([canSubmit, isSubmitting]) => (
+          <button type="submit" disabled={!canSubmit}>
+            {isSubmitting ? '...' : 'Submit'}
+          </button>
+        )}
+      </form.Subscribe>
+    </form>
+  )
+}
+```
+
+<Tip>
+  Use React's `useActionState` hook and TanStack Form's `useTransform` to merge state returned from the server action with the form state.
+</Tip>
+
+## Remix Integration
+
+<Warning>
+  Before reading this section, understand how [Remix actions work](https://remix.run/docs/en/main/discussion/data-flow#route-action).
+</Warning>
+
+### Prerequisites
+
+- Start a new Remix project following the [Remix Documentation](https://remix.run/docs/en/main/start/quickstart)
+- Install `@tanstack/react-form`
+- Optionally install a [form validator](/react/validation)
+
+### Form Options and Action
+
+```tsx
+// routes/_index/route.tsx
+import {
+  ServerValidateError,
+  createServerValidate,
+  formOptions,
+} from '@tanstack/react-form-remix'
+import type { ActionFunctionArgs } from '@remix-run/node'
+
+export const formOpts = formOptions({
+  defaultValues: {
+    firstName: '',
+    age: 0,
+  },
+})
+
+const serverValidate = createServerValidate({
+  ...formOpts,
+  onServerValidate: ({ value }) => {
+    if (value.age < 12) {
+      return 'Server validation: You must be at least 12 to sign up'
+    }
+  },
+})
+
+export async function action({ request }: ActionFunctionArgs) {
+  const formData = await request.formData()
+  try {
+    const validatedData = await serverValidate(formData)
+    console.log('validatedData', validatedData)
+    // Persist to database
+    // await db.insert(validatedData)
+  } catch (e) {
+    if (e instanceof ServerValidateError) {
+      return e.formState
+    }
+    throw e
+  }
+
+  // Form validated successfully!
+}
+```
+
+### Component
+
+```tsx
+// routes/_index/route.tsx
+import {
+  Form,
+  mergeForm,
+  useActionData,
+  useForm,
+  useStore,
+  useTransform,
+} from '@tanstack/react-form'
+import { initialFormState } from '@tanstack/react-form-remix'
+
+export default function Index() {
+  const actionData = useActionData<typeof action>()
+
+  const form = useForm({
+    ...formOpts,
+    transform: useTransform(
+      (baseForm) => mergeForm(baseForm, actionData ?? initialFormState),
+      [actionData],
+    ),
+  })
+
+  const formErrors = useStore(form.store, (formState) => formState.errors)
+
+  return (
+    <Form method="post" onSubmit={() => form.handleSubmit()}>
+      {formErrors.map((error) => (
+        <p key={error as string} style={{ color: 'red' }}>
+          {error}
+        </p>
+      ))}
+
+      <form.Field
+        name="age"
+        validators={{
+          onChange: ({ value }) =>
+            value < 8 ? 'Client validation: You must be at least 8' : undefined,
+        }}
+      >
+        {(field) => (
+          <div>
+            <label htmlFor={field.name}>Age</label>
+            <input
+              id={field.name}
+              name="age"
+              type="number"
+              value={field.state.value}
+              onChange={(e) => field.handleChange(e.target.valueAsNumber)}
+            />
+            {field.state.meta.errors.map((error) => (
+              <p key={error as string} style={{ color: 'red' }}>
+                {error}
+              </p>
+            ))}
+          </div>
+        )}
+      </form.Field>
+
+      <form.Subscribe
+        selector={(formState) => [formState.canSubmit, formState.isSubmitting]}
+      >
+        {([canSubmit, isSubmitting]) => (
+          <button type="submit" disabled={!canSubmit}>
+            {isSubmitting ? '...' : 'Submit'}
+          </button>
+        )}
+      </form.Subscribe>
+    </Form>
+  )
+}
+```
+
+<Tip>
+  Use Remix's `useActionData` hook and TanStack Form's `useTransform` to merge state returned from the server action with the form state.
+</Tip>
+
+## Benefits of SSR Integration
+
+1. **Progressive Enhancement**: Forms work without JavaScript
+2. **Server-Side Validation**: Validate on the server for security
+3. **Type Safety**: Share types between client and server
+4. **Better UX**: Faster initial page loads with server rendering
+5. **SEO Friendly**: Search engines can see your form content
+
+## Best Practices
+
+- Always validate on the server, even if you validate on the client
+- Use the correct import paths for your framework
+- Handle errors gracefully with try/catch blocks
+- Provide loading states during form submission
+- Reset forms after successful submission when appropriate
+
+<Warning>
+  Never trust client-side validation alone. Always validate on the server to prevent malicious submissions.
+</Warning>

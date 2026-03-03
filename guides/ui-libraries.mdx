@@ -1,0 +1,417 @@
+---
+title: UI Library Integration
+description: Learn how to integrate TanStack Form with popular UI libraries like Material UI, Mantine, shadcn/ui, and Chakra UI
+---
+
+TanStack Form is a headless library, offering you complete flexibility to style it as you see fit. It's compatible with a wide range of UI libraries, including Chakra UI, Tailwind, Material UI, Mantine, shadcn/ui, or even plain CSS.
+
+This guide demonstrates integration with popular UI libraries, but the concepts are applicable to any UI library of your choice.
+
+## Installation
+
+Before integrating TanStack Form with a UI library, ensure the necessary dependencies are installed:
+
+- **Chakra UI**: Follow the [installation instructions](https://chakra-ui.com/docs/get-started/installation)
+- **Material UI**: Follow the [installation instructions](https://mui.com/material-ui/getting-started/)
+- **Mantine**: Refer to the [documentation](https://mantine.dev/)
+- **shadcn/ui**: Refer to the [official site](https://ui.shadcn.com/)
+
+<Warning>
+  While you can mix and match libraries, it's generally advisable to stick with one to maintain consistency and minimize bloat.
+</Warning>
+
+## Mantine Integration
+
+Here's an example demonstrating the integration of TanStack Form with Mantine components:
+
+```tsx
+import { TextInput, Checkbox } from '@mantine/core'
+import { useForm } from '@tanstack/react-form'
+
+export default function App() {
+  const form = useForm({
+    defaultValues: {
+      name: '',
+      isChecked: false,
+    },
+    onSubmit: async ({ value }) => {
+      console.log(value)
+    },
+  })
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        form.handleSubmit()
+      }}
+    >
+      <form.Field
+        name="name"
+        validators={{
+          onChange: ({ value }) =>
+            value.length < 3 ? 'Name must be at least 3 characters' : undefined,
+        }}
+      >
+        {({ state, handleChange, handleBlur }) => (
+          <TextInput
+            label="Name"
+            placeholder="Enter your name"
+            value={state.value}
+            onChange={(e) => handleChange(e.target.value)}
+            onBlur={handleBlur}
+            error={state.meta.errors[0]}
+          />
+        )}
+      </form.Field>
+
+      <form.Field name="isChecked">
+        {({ state, handleChange, handleBlur }) => (
+          <Checkbox
+            label="Accept terms"
+            checked={state.value}
+            onChange={(e) => handleChange(e.target.checked)}
+            onBlur={handleBlur}
+          />
+        )}
+      </form.Field>
+
+      <form.Subscribe
+        selector={(state) => [state.canSubmit, state.isSubmitting]}
+      >
+        {([canSubmit, isSubmitting]) => (
+          <button type="submit" disabled={!canSubmit}>
+            {isSubmitting ? '...' : 'Submit'}
+          </button>
+        )}
+      </form.Subscribe>
+    </form>
+  )
+}
+```
+
+### Key Integration Points
+
+- The `Field` component uses render props to integrate with Mantine components
+- We destructure `state`, `handleChange`, and `handleBlur` from the field
+- We pass these props to the Mantine components, adapting to their specific APIs
+- Error messages are displayed using Mantine's built-in error prop
+
+<Tip>
+  TanStack Form's design relies heavily on render props, providing type-safe access to field state and handlers without unnecessary abstractions.
+</Tip>
+
+## Material UI Integration
+
+The integration process is similar for Material UI components:
+
+```tsx
+import TextField from '@mui/material/TextField'
+import { Checkbox } from '@mui/material'
+import { useForm } from '@tanstack/react-form'
+
+export default function App() {
+  const form = useForm({
+    defaultValues: {
+      lastName: '',
+      isMuiCheckBox: false,
+    },
+    onSubmit: async ({ value }) => {
+      console.log(value)
+    },
+  })
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        form.handleSubmit()
+      }}
+    >
+      <form.Field name="lastName">
+        {({ state, handleChange, handleBlur }) => (
+          <TextField
+            label="Last Name"
+            variant="filled"
+            value={state.value}
+            onChange={(e) => handleChange(e.target.value)}
+            onBlur={handleBlur}
+            placeholder="Enter your last name"
+            error={state.meta.errors.length > 0}
+            helperText={state.meta.errors[0]}
+          />
+        )}
+      </form.Field>
+
+      <form.Field name="isMuiCheckBox">
+        {({ state, handleChange, handleBlur }) => (
+          <Checkbox
+            checked={state.value}
+            onChange={(e) => handleChange(e.target.checked)}
+            onBlur={handleBlur}
+          />
+        )}
+      </form.Field>
+
+      <form.Subscribe
+        selector={(state) => [state.canSubmit, state.isSubmitting]}
+      >
+        {([canSubmit, isSubmitting]) => (
+          <button type="submit" disabled={!canSubmit}>
+            {isSubmitting ? '...' : 'Submit'}
+          </button>
+        )}
+      </form.Subscribe>
+    </form>
+  )
+}
+```
+
+### Material UI Specifics
+
+- Use the `error` prop (boolean) to indicate validation errors
+- Use the `helperText` prop to display error messages
+- The `variant` prop controls the visual style (outlined, filled, standard)
+
+## shadcn/ui Integration
+
+The process for integrating shadcn/ui components:
+
+```tsx
+import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
+import { useForm } from '@tanstack/react-form'
+
+export default function App() {
+  const form = useForm({
+    defaultValues: {
+      name: '',
+      isChecked: false,
+    },
+    onSubmit: async ({ value }) => {
+      console.log(value)
+    },
+  })
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        form.handleSubmit()
+      }}
+    >
+      <form.Field name="name">
+        {({ state, handleChange, handleBlur }) => (
+          <div className="space-y-2">
+            <Input
+              value={state.value}
+              onChange={(e) => handleChange(e.target.value)}
+              onBlur={handleBlur}
+              placeholder="Enter your name"
+            />
+            {state.meta.errors[0] && (
+              <p className="text-sm text-destructive">
+                {state.meta.errors[0]}
+              </p>
+            )}
+          </div>
+        )}
+      </form.Field>
+
+      <form.Field name="isChecked">
+        {({ state, handleChange, handleBlur }) => (
+          <Checkbox
+            checked={state.value}
+            onCheckedChange={(checked) => handleChange(checked === true)}
+            onBlur={handleBlur}
+          />
+        )}
+      </form.Field>
+
+      <form.Subscribe
+        selector={(state) => [state.canSubmit, state.isSubmitting]}
+      >
+        {([canSubmit, isSubmitting]) => (
+          <button type="submit" disabled={!canSubmit}>
+            {isSubmitting ? '...' : 'Submit'}
+          </button>
+        )}
+      </form.Subscribe>
+    </form>
+  )
+}
+```
+
+### shadcn/ui Specifics
+
+- Note the `onCheckedChange` prop instead of `onChange` for Checkbox
+- Error messages are styled with Tailwind utility classes
+- Components are typically imported from your local `components/ui` directory
+
+<Tip>
+  shadcn/ui has a dedicated [TanStack Form integration guide](https://ui.shadcn.com/docs/forms/tanstack-form) covering common scenarios.
+</Tip>
+
+## Chakra UI Integration
+
+Chakra UI integration with both composable and closed components:
+
+```tsx
+import { Input } from '@chakra-ui/react'
+import { Checkbox } from '@chakra-ui/react'
+import { useForm } from '@tanstack/react-form'
+
+export default function App() {
+  const form = useForm({
+    defaultValues: {
+      name: '',
+      isChecked: false,
+    },
+    onSubmit: async ({ value }) => {
+      console.log(value)
+    },
+  })
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        form.handleSubmit()
+      }}
+    >
+      <form.Field name="name">
+        {({ state, handleChange, handleBlur }) => (
+          <Input
+            value={state.value}
+            onChange={(e) => handleChange(e.target.value)}
+            onBlur={handleBlur}
+            placeholder="Enter your name"
+          />
+        )}
+      </form.Field>
+
+      <form.Field name="isChecked">
+        {({ state, handleChange, handleBlur }) => (
+          <Checkbox
+            checked={state.value}
+            onCheckedChange={(details) => handleChange(!!details.checked)}
+            onBlur={handleBlur}
+          >
+            Accept terms
+          </Checkbox>
+        )}
+      </form.Field>
+    </form>
+  )
+}
+```
+
+### Chakra UI Composable Components
+
+Chakra UI v3 exposes many components as composable parts:
+
+```tsx
+import { Checkbox } from '@chakra-ui/react'
+
+<form.Field name="isChecked">
+  {({ state, handleChange, handleBlur }) => (
+    <Checkbox.Root
+      checked={state.value}
+      onCheckedChange={(details) => handleChange(!!details.checked)}
+      onBlur={handleBlur}
+    >
+      <Checkbox.HiddenInput />
+      <Checkbox.Control />
+      <Checkbox.Label>Accept terms</Checkbox.Label>
+    </Checkbox.Root>
+  )}
+</form.Field>
+```
+
+<Warning>
+  The double negation (`!!`) coerces Chakra's `"indeterminate"` state to a boolean. See the [Chakra UI Checkbox documentation](https://chakra-ui.com/docs/components/checkbox#indeterminate) for details.
+</Warning>
+
+## Common Patterns
+
+### Error Display
+
+Most UI libraries have their own error display patterns:
+
+```tsx
+// Mantine
+<TextInput error={state.meta.errors[0]} />
+
+// Material UI  
+<TextField 
+  error={state.meta.errors.length > 0}
+  helperText={state.meta.errors[0]}
+/>
+
+// shadcn/ui
+{state.meta.errors[0] && (
+  <p className="text-sm text-destructive">{state.meta.errors[0]}</p>
+)}
+```
+
+### Validation on Blur
+
+All integrations follow the same pattern for blur validation:
+
+```tsx
+<form.Field
+  name="email"
+  validators={{
+    onBlur: ({ value }) =>
+      !value.includes('@') ? 'Invalid email' : undefined,
+  }}
+>
+  {({ state, handleChange, handleBlur }) => (
+    <Input
+      value={state.value}
+      onChange={(e) => handleChange(e.target.value)}
+      onBlur={handleBlur} // Important!
+    />
+  )}
+</form.Field>
+```
+
+### Async Validation
+
+Async validation works the same across all UI libraries:
+
+```tsx
+<form.Field
+  name="username"
+  validators={{
+    onChangeAsyncDebounceMs: 500,
+    onChangeAsync: async ({ value }) => {
+      const exists = await checkUsername(value)
+      return exists ? 'Username taken' : undefined
+    },
+  }}
+>
+  {({ state, handleChange, handleBlur }) => (
+    <div>
+      <Input
+        value={state.value}
+        onChange={(e) => handleChange(e.target.value)}
+        onBlur={handleBlur}
+      />
+      {state.meta.isValidating && <span>Checking...</span>}
+    </div>
+  )}
+</form.Field>
+```
+
+## Best Practices
+
+1. **Use render props**: They provide type safety and flexibility
+2. **Handle all events**: Pass `handleChange`, `handleBlur`, and other handlers to maintain form state
+3. **Adapt to component APIs**: Different UI libraries have different prop names (e.g., `onChange` vs `onCheckedChange`)
+4. **Display errors appropriately**: Use each library's preferred error display mechanism
+5. **Type safety**: Let TypeScript infer types from your form definition
+
+<Tip>
+  Start with the basic examples in this guide and adapt them to your specific UI library's component API and styling patterns.
+</Tip>

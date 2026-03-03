@@ -1,122 +1,167 @@
 {
   "$schema": "https://mintlify.com/docs.json",
+  "name": "TanStack Form",
   "theme": "mint",
-  "name": "Mint Starter Kit",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#00c7b7",
+    "light": "#00e8d4",
+    "dark": "#00a89a"
   },
   "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/tanstack/form"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/tanstack/form"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "introduction",
+              "installation",
+              "quickstart"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "concepts/overview",
+              "concepts/philosophy",
+              "concepts/typescript"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "React",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "react/quick-start",
+              "react/basic-concepts",
+              "react/validation",
+              "react/arrays",
+              "react/form-composition"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Vue",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "vue/quick-start",
+              "vue/basic-concepts",
+              "vue/validation",
+              "vue/arrays"
+            ]
+          },
+          {
+            "group": "Angular",
+            "pages": [
+              "angular/quick-start",
+              "angular/basic-concepts",
+              "angular/validation",
+              "angular/arrays"
+            ]
+          },
+          {
+            "group": "Solid",
+            "pages": [
+              "solid/quick-start",
+              "solid/basic-concepts",
+              "solid/validation",
+              "solid/arrays"
+            ]
+          },
+          {
+            "group": "Lit",
+            "pages": [
+              "lit/quick-start",
+              "lit/basic-concepts",
+              "lit/validation",
+              "lit/arrays"
+            ]
+          },
+          {
+            "group": "Svelte",
+            "pages": [
+              "svelte/quick-start",
+              "svelte/basic-concepts",
+              "svelte/validation",
+              "svelte/arrays"
+            ]
+          },
+          {
+            "group": "Advanced Guides",
+            "pages": [
+              "guides/dynamic-validation",
+              "guides/async-initial-values",
+              "guides/linked-fields",
+              "guides/custom-errors",
+              "guides/submission-handling",
+              "guides/ui-libraries",
+              "guides/ssr",
+              "guides/debugging"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Core",
             "pages": [
-              "api-reference/introduction"
+              "api/core/form-api",
+              "api/core/field-api",
+              "api/core/form-options",
+              "api/core/field-options",
+              "api/core/validators"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "React",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api/react/use-form",
+              "api/react/use-field",
+              "api/react/field-component"
+            ]
+          },
+          {
+            "group": "Vue",
+            "pages": [
+              "api/vue/use-form",
+              "api/vue/use-field",
+              "api/vue/field-component"
+            ]
+          },
+          {
+            "group": "Angular",
+            "pages": [
+              "api/angular/inject-form",
+              "api/angular/tanstack-field"
+            ]
+          },
+          {
+            "group": "Solid",
+            "pages": [
+              "api/solid/create-form",
+              "api/solid/create-field",
+              "api/solid/field-component"
+            ]
+          },
+          {
+            "group": "Lit",
+            "pages": [
+              "api/lit/form-controller"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

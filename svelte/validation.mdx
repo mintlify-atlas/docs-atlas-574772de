@@ -1,0 +1,559 @@
+---
+title: Form Validation
+description: Implement validation in TanStack Form for Svelte
+---
+
+TanStack Form provides highly customizable validation with control over when and how validation occurs.
+
+## Validation Features
+
+- Control **when** validation runs (onChange, onBlur, onSubmit)
+- Define validators at the **field level** or **form level**
+- Support for **synchronous** and **asynchronous** validation
+- Built-in **debouncing** for async validators
+- Integration with **schema libraries** (Zod, Valibot, ArkType, Yup)
+
+## When Does Validation Run?
+
+You control when validation occurs by providing validator callbacks in the `validators` prop of `form.Field`.
+
+### Validating on Change
+
+Validate as the user types:
+
+```svelte
+<form.Field
+  name="age"
+  validators={{
+    onChange: ({ value }) =>
+      value < 13 ? 'You must be 13 to make an account' : undefined,
+  }}
+>
+  {#snippet children(field)}
+    <label for={field.name}>Age:</label>
+    <input
+      id={field.name}
+      name={field.name}
+      value={field.state.value}
+      type="number"
+      onchange={(e) => field.handleChange(e.target.valueAsNumber)}
+    />
+    {#if field.state.meta.errors}
+      <em role="alert">{field.state.meta.errors.join(', ')}</em>
+    {/if}
+  {/snippet}
+</form.Field>
+```
+
+### Validating on Blur
+
+Validate when the field loses focus:
+
+```svelte
+<form.Field
+  name="age"
+  validators={{
+    onBlur: ({ value }) =>
+      value < 13 ? 'You must be 13 to make an account' : undefined,
+  }}
+>
+  {#snippet children(field)}
+    <label for={field.name}>Age:</label>
+    <input
+      id={field.name}
+      name={field.name}
+      value={field.state.value}
+      type="number"
+      onblur={field.handleBlur}
+      onchange={(e) => field.handleChange(e.target.valueAsNumber)}
+    />
+    {#if field.state.meta.errors}
+      <em role="alert">{field.state.meta.errors.join(', ')}</em>
+    {/if}
+  {/snippet}
+</form.Field>
+```
+
+### Multiple Validators
+
+Combine different validators for comprehensive validation:
+
+```svelte
+<form.Field
+  name="age"
+  validators={{
+    onChange: ({ value }) =>
+      value < 13 ? 'You must be 13 to make an account' : undefined,
+    onBlur: ({ value }) => (value < 0 ? 'Invalid value' : undefined),
+  }}
+>
+  {#snippet children(field)}
+    <label for={field.name}>Age:</label>
+    <input
+      id={field.name}
+      name={field.name}
+      value={field.state.value}
+      type="number"
+      onblur={field.handleBlur}
+      onchange={(e) => field.handleChange(e.target.valueAsNumber)}
+    />
+    {#if field.state.meta.errors}
+      <em role="alert">{field.state.meta.errors.join(', ')}</em>
+    {/if}
+  {/snippet}
+</form.Field>
+```
+
+## Displaying Errors
+
+### Using the Errors Array
+
+Display all errors for a field:
+
+```svelte
+<form.Field
+  name="age"
+  validators={{
+    onChange: ({ value }) =>
+      value < 13 ? 'You must be 13 to make an account' : undefined,
+  }}
+>
+  {#snippet children(field)}
+    <!-- ... -->
+    {#if field.state.meta.errors}
+      <em role="alert">{field.state.meta.errors.join(', ')}</em>
+    {/if}
+  {/snippet}
+</form.Field>
+```
+
+### Using the Error Map
+
+Access specific errors by validator type:
+
+```svelte
+<form.Field
+  name="age"
+  validators={{
+    onChange: ({ value }) =>
+      value < 13 ? 'You must be 13 to make an account' : undefined,
+  }}
+>
+  {#snippet children(field)}
+    <!-- ... -->
+    {#if field.state.meta.errorMap['onChange']}
+      <em role="alert">{field.state.meta.errorMap['onChange']}</em>
+    {/if}
+  {/snippet}
+</form.Field>
+```
+
+### Typed Error Objects
+
+Validators can return custom error objects with type safety:
+
+```svelte
+<form.Field
+  name="age"
+  validators={{
+    onChange: ({ value }) => (value < 13 ? { isOldEnough: false } : undefined),
+  }}
+>
+  {#snippet children(field)}
+    <!-- errorMap.onChange is type `{isOldEnough: false} | undefined` -->
+    {#if field.state.meta.errorMap['onChange']?.isOldEnough}
+      <em>The user is not old enough</em>
+    {/if}
+  {/snippet}
+</form.Field>
+```
+
+## Form-Level Validation
+
+Define validators for the entire form in the `createForm` call:
+
+```svelte
+<script>
+  import { createForm } from '@tanstack/svelte-form'
+
+  const form = createForm(() => ({
+    defaultValues: {
+      age: 0,
+    },
+    onSubmit: async ({ value }) => {
+      console.log(value)
+    },
+    validators: {
+      onChange({ value }) {
+        if (value.age < 13) {
+          return 'Must be 13 or older to sign'
+        }
+        return undefined
+      },
+    },
+  }))
+
+  // Subscribe to the form's error map
+  const formErrorMap = form.useStore((state) => state.errorMap)
+</script>
+
+<div>
+  {#if $formErrorMap.onChange}
+    <div>
+      <em>There was an error on the form: {$formErrorMap.onChange}</em>
+    </div>
+  {/if}
+</div>
+```
+
+Alternatively, use the `form.Subscribe` component:
+
+```svelte
+<form.Subscribe selector={(state) => state.errorMap}>
+  {#snippet children(errorMap)}
+    {#if errorMap.onChange}
+      <div>
+        <em>There was an error on the form: {errorMap.onChange}</em>
+      </div>
+    {/if}
+  {/snippet}
+</form.Subscribe>
+```
+
+## Asynchronous Validation
+
+For validation that requires network calls or other async operations, use async validators:
+
+```svelte
+<form.Field
+  name="age"
+  validators={{
+    onChangeAsync: async ({ value }) => {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      return value < 13 ? 'You must be 13 to make an account' : undefined
+    },
+  }}
+>
+  {#snippet children(field)}
+    <label for={field.name}>Age:</label>
+    <input
+      id={field.name}
+      name={field.name}
+      value={field.state.value}
+      type="number"
+      onchange={(e) => field.handleChange(e.target.valueAsNumber)}
+    />
+    {#if field.state.meta.errors}
+      <em role="alert">{field.state.meta.errors.join(', ')}</em>
+    {/if}
+  {/snippet}
+</form.Field>
+```
+
+### Combining Sync and Async Validation
+
+You can use both synchronous and asynchronous validators together:
+
+```svelte
+<form.Field
+  name="age"
+  validators={{
+    onBlur: ({ value }) => (value < 13 ? 'You must be at least 13' : undefined),
+    onBlurAsync: async ({ value }) => {
+      const currentAge = await fetchCurrentAgeOnProfile()
+      return value < currentAge ? 'You can only increase the age' : undefined
+    },
+  }}
+>
+  {#snippet children(field)}
+    <label for={field.name}>Age:</label>
+    <input
+      id={field.name}
+      name={field.name}
+      value={field.state.value}
+      type="number"
+      onblur={field.handleBlur}
+      onchange={(e) => field.handleChange(e.target.valueAsNumber)}
+    />
+    {#if field.state.meta.errors}
+      <em role="alert">{field.state.meta.errors.join(', ')}</em>
+    {/if}
+  {/snippet}
+</form.Field>
+```
+
+By default, the async validator only runs if the sync validator succeeds. Set `asyncAlways: true` to change this behavior.
+
+### Built-in Debouncing
+
+Prevent excessive API calls by debouncing async validators:
+
+```svelte
+<form.Field
+  name="age"
+  asyncDebounceMs={500}
+  validators={{
+    onChangeAsync: async ({ value }) => {
+      // Only runs after 500ms of no changes
+    },
+  }}
+>
+  <!-- ... -->
+</form.Field>
+```
+
+You can override debounce timing per validator:
+
+```svelte
+<form.Field
+  name="age"
+  asyncDebounceMs={500}
+  validators={{
+    onChangeAsyncDebounceMs: 1500,
+    onChangeAsync: async ({ value }) => {
+      // Runs after 1500ms
+    },
+    onBlurAsync: async ({ value }) => {
+      // Runs after 500ms
+    },
+  }}
+>
+  <!-- ... -->
+</form.Field>
+```
+
+## Schema Validation
+
+TanStack Form supports all [Standard Schema](https://github.com/standard-schema/standard-schema) libraries:
+
+- [Zod](https://zod.dev/)
+- [Valibot](https://valibot.dev/)
+- [ArkType](https://arktype.io/)
+- [Yup](https://github.com/jquense/yup)
+
+### Form-Level Schema
+
+Define a schema for the entire form:
+
+```svelte
+<script>
+  import { z } from 'zod'
+  import { createForm } from '@tanstack/svelte-form'
+
+  const userSchema = z.object({
+    age: z.number().gte(13, 'You must be 13 to make an account'),
+  })
+
+  const form = createForm(() => ({
+    defaultValues: {
+      age: 0,
+    },
+    validators: {
+      onChange: userSchema,
+    },
+    onSubmit: async ({ value }) => {
+      console.log(value)
+    },
+  }))
+</script>
+```
+
+### Field-Level Schema
+
+Use schemas directly in field validators:
+
+```svelte
+<script>
+  import { z } from 'zod'
+  // ...
+</script>
+
+<form.Field
+  name="age"
+  validators={{
+    onChange: z.number().gte(13, 'You must be 13 to make an account'),
+  }}
+>
+  <!-- ... -->
+</form.Field>
+```
+
+### Async Schema Validation
+
+Schemas work with async validators too:
+
+```svelte
+<form.Field
+  name="age"
+  validators={{
+    onChange: z.number().gte(13, 'You must be 13 to make an account'),
+    onChangeAsyncDebounceMs: 500,
+    onChangeAsync: z.number().refine(
+      async (value) => {
+        const currentAge = await fetchCurrentAgeOnProfile()
+        return value >= currentAge
+      },
+      {
+        message: 'You can only increase the age',
+      },
+    ),
+  }}
+>
+  <!-- ... -->
+</form.Field>
+```
+
+### Complete Schema Example
+
+```svelte
+<script lang="ts">
+  import { createForm } from '@tanstack/svelte-form'
+  import { z } from 'zod'
+
+  const FormSchema = z.object({
+    firstName: z
+      .string()
+      .min(3, 'You must have a length of at least 3')
+      .startsWith('A', "First name must start with 'A'"),
+    lastName: z.string().min(3, 'You must have a length of at least 3'),
+  })
+
+  const form = createForm(() => ({
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+    },
+    validators: {
+      onChange: FormSchema,
+    },
+    onSubmit: async ({ value }) => {
+      alert(JSON.stringify(value))
+    },
+  }))
+</script>
+
+<form
+  id="form"
+  onsubmit={(e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    form.handleSubmit()
+  }}
+>
+  <h1>TanStack Form - Svelte Demo</h1>
+
+  <form.Field name="firstName">
+    {#snippet children(field)}
+      <div>
+        <label for={field.name}>First Name</label>
+        <input
+          id={field.name}
+          type="text"
+          placeholder="First Name"
+          value={field.state.value}
+          onblur={() => field.handleBlur()}
+          oninput={(e: Event) => {
+            const target = e.target as HTMLInputElement
+            field.handleChange(target.value)
+          }}
+        />
+        {#if field.state.meta.errors}
+          <em>{field.state.meta.errors[0]}</em>
+        {/if}
+      </div>
+    {/snippet}
+  </form.Field>
+
+  <form.Field name="lastName">
+    {#snippet children(field)}
+      <div>
+        <label for={field.name}>Last Name</label>
+        <input
+          id={field.name}
+          type="text"
+          placeholder="Last Name"
+          value={field.state.value}
+          onblur={() => field.handleBlur()}
+          oninput={(e: Event) => {
+            const target = e.target as HTMLInputElement
+            field.handleChange(target.value)
+          }}
+        />
+        {#if field.state.meta.errors}
+          <em>{field.state.meta.errors[0]}</em>
+        {/if}
+      </div>
+    {/snippet}
+  </form.Field>
+
+  <div>
+    <form.Subscribe
+      selector={(state) => ({
+        canSubmit: state.canSubmit,
+        isSubmitting: state.isSubmitting,
+      })}
+    >
+      {#snippet children({ canSubmit, isSubmitting })}
+        <button type="submit" disabled={!canSubmit}>
+          {isSubmitting ? 'Submitting' : 'Submit'}
+        </button>
+      {/snippet}
+    </form.Subscribe>
+  </div>
+</form>
+```
+
+## Preventing Invalid Submissions
+
+Use the `canSubmit` flag to control form submission:
+
+```svelte
+<script>
+  import { createForm } from '@tanstack/svelte-form'
+
+  const form = createForm(() => ({
+    /* ... */
+  }))
+</script>
+
+<form.Subscribe
+  selector={(state) => ({
+    canSubmit: state.canSubmit,
+    isSubmitting: state.isSubmitting,
+  })}
+>
+  {#snippet children(state)}
+    <button type="submit" disabled={!state.canSubmit}>
+      {state.isSubmitting ? '...' : 'Submit'}
+    </button>
+  {/snippet}
+</form.Subscribe>
+```
+
+The `canSubmit` flag is `false` when:
+- Any field has validation errors
+- The form has been touched by the user
+
+To prevent submission before any interaction, combine flags:
+
+```svelte
+<form.Subscribe
+  selector={(state) => ({
+    canSubmit: state.canSubmit,
+    isPristine: state.isPristine,
+    isSubmitting: state.isSubmitting,
+  })}
+>
+  {#snippet children(state)}
+    <button type="submit" disabled={!state.canSubmit || state.isPristine}>
+      {state.isSubmitting ? '...' : 'Submit'}
+    </button>
+  {/snippet}
+</form.Subscribe>
+```
+
+## Next Steps
+
+- Learn about [Array Fields](/svelte/arrays) for dynamic form lists
+- Explore the [API Reference](/api/vue/use-form) for complete documentation
+- Check out [Basic Concepts](/svelte/basic-concepts) for deeper understanding

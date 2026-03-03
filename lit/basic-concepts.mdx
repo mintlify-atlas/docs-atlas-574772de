@@ -1,0 +1,214 @@
+---
+title: Basic Concepts
+description: Learn the fundamental concepts of TanStack Form in Lit
+---
+
+This page introduces the basic concepts and terminology used in `@tanstack/lit-form`. Understanding these concepts will help you work effectively with forms in Lit.
+
+## Form Options
+
+You can create reusable form options using the `formOptions` function. This allows you to share configuration between multiple forms:
+
+```ts
+import { formOptions } from '@tanstack/lit-form'
+
+const formOpts = formOptions({
+  defaultValues: {
+    firstName: '',
+    lastName: '',
+    employed: false,
+    jobTitle: '',
+  } as Employee,
+})
+```
+
+## Form Instance
+
+A form instance represents an individual form and provides methods for managing the form state. You create a form instance using the `TanStackFormController`.
+
+### Creating a Form Instance
+
+The `TanStackFormController` is a Lit reactive controller that integrates with your component's lifecycle:
+
+```ts
+import { LitElement } from 'lit'
+import { TanStackFormController } from '@tanstack/lit-form'
+
+class MyForm extends LitElement {
+  #form = new TanStackFormController(this, {
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+      employed: false,
+      jobTitle: '',
+    } as Employee,
+  })
+}
+```
+
+The first parameter `this` refers to your LitElement instance, which allows the controller to trigger re-renders when form state changes.
+
+### Using Form Options
+
+You can also create a form instance using previously defined form options:
+
+```ts
+#form = new TanStackFormController(this, {
+  ...formOpts,
+})
+```
+
+## Field
+
+A field represents a single form input element. Fields are created using the `field(FieldOptions, callback)` method provided by the form instance.
+
+### Creating a Field
+
+The `field` method accepts:
+1. A `FieldOptions` object with the field name and validators
+2. A callback function that receives a `FieldApi` object and returns HTML
+
+```ts
+${this.#form.field(
+  {
+    name: 'firstName',
+    validators: {
+      onChange: ({ value }) =>
+        value.length < 3 ? "Not long enough" : undefined,
+    },
+  },
+  (field) => {
+    return html`
+      <div>
+        <label class="first-name-label">First Name</label>
+        <input
+          id="firstName"
+          type="text"
+          placeholder="First Name"
+          @blur="${() => field.handleBlur()}"
+          .value="${field.state.value}"
+          @input="${(event: InputEvent) => {
+            if (event.currentTarget) {
+              const newValue = (event.currentTarget as HTMLInputElement).value
+              field.handleChange(newValue)
+            }
+          }}"
+        />
+      </div>
+    `
+  },
+)}
+```
+
+### Field API Methods
+
+The `FieldApi` object provides methods to interact with the field:
+
+- `field.handleChange(value)` - Update the field's value
+- `field.handleBlur()` - Mark the field as blurred
+- `field.getValue()` - Get the current field value
+- `field.pushValue(item)` - Add an item to an array field
+- `field.removeValue(index)` - Remove an item from an array field
+
+## Field State
+
+Each field maintains its own state, accessible via `field.state`. This includes the current value, validation status, and metadata.
+
+```ts
+const {
+  value,
+  meta: { errors, isValidating },
+} = field.state
+```
+
+### Field Metadata
+
+The metadata tracks user interaction with the field:
+
+- **`isTouched`** - Set after the user changes or blurs the field
+- **`isDirty`** - Set after the field's value has been changed, even if reverted to default (opposite of `isPristine`)
+- **`isPristine`** - True until the user changes the field value (opposite of `isDirty`)
+- **`isBlurred`** - Set after the field has been blurred
+
+```ts
+const { isTouched, isDirty, isPristine, isBlurred } = field.state.meta
+```
+
+![Field states diagram showing the transitions between pristine, dirty, touched, and blurred states](https://raw.githubusercontent.com/TanStack/form/main/docs/assets/field-states.png)
+
+### Understanding isDirty
+
+TanStack Form uses a **persistent** `dirty` state model:
+
+- A field becomes `isDirty: true` when its value changes
+- It remains `isDirty: true` even if you revert to the default value
+- This matches the behavior of Angular Forms and Vue FormKit
+
+For a **non-persistent** dirty check (like React Hook Form or Formik), use the `isDefaultValue` flag:
+
+```ts
+const { isDefaultValue } = field.state.meta
+
+// Non-persistent dirty check
+const nonPersistentIsDirty = !isDefaultValue
+```
+
+![Extended field states diagram showing the relationship between isDirty and isDefaultValue](https://raw.githubusercontent.com/TanStack/form/main/docs/assets/field-states-extended.png)
+
+## Validation State
+
+Field state includes validation information:
+
+- **`errors`** - Array of error messages from all validators
+- **`errorMap`** - Object mapping validator types (`onChange`, `onBlur`, etc.) to their specific errors
+- **`isValid`** - Boolean indicating if the field passes all validations
+- **`isValidating`** - Boolean indicating if async validation is in progress
+
+```ts
+const { errors, errorMap, isValid, isValidating } = field.state.meta
+
+// Display all errors
+if (!isValid) {
+  console.log(errors) // ['Error 1', 'Error 2']
+}
+
+// Display specific validator error
+if (errorMap['onChange']) {
+  console.log(errorMap['onChange']) // 'Error from onChange validator'
+}
+```
+
+## Form State
+
+The form instance maintains global form state accessible via `this.#form.api.state`:
+
+```ts
+const {
+  values,        // All form values
+  errors,        // Form-level errors
+  errorMap,      // Map of form-level errors by validator type
+  canSubmit,     // Whether the form can be submitted
+  isSubmitting,  // Whether the form is currently submitting
+  isValid,       // Whether all fields are valid
+} = this.#form.api.state
+```
+
+### Conditional Submit Button
+
+Use form state to control your submit button:
+
+```ts
+render() {
+  return html`
+    <button type="submit" ?disabled="${!this.#form.api.state.canSubmit}">
+      ${this.#form.api.state.isSubmitting ? '...' : 'Submit'}
+    </button>
+  `
+}
+```
+
+## Next Steps
+
+- Learn about [Form Validation](/lit/validation) techniques
+- Explore [Array Fields](/lit/arrays) for managing lists
+- Check the [API Reference](/api/lit/form-controller) for detailed documentation

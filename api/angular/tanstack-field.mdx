@@ -1,0 +1,314 @@
+---
+title: TanStackField
+description: API reference for the TanStackField directive in Angular
+---
+
+The `TanStackField` directive provides a way to create and manage form fields in Angular applications using TanStack Form.
+
+## Import
+
+```typescript
+import { TanStackField } from '@tanstack/angular-form'
+```
+
+## Selector
+
+```typescript
+[tanstackField]
+```
+
+## Inputs
+
+<ParamField path="tanstackField" type="FormApi<TParentData>" required>
+  The parent form API instance.
+</ParamField>
+
+<ParamField path="name" type="TName" required>
+  The field name as a path string (e.g., 'user.firstName' or 'items[0].name').
+</ParamField>
+
+<ParamField path="defaultValue" type="TData">
+  The default value for the field.
+</ParamField>
+
+<ParamField path="validators" type="FieldValidators<TParentData, TName, TData>">
+  Validation functions for the field.
+
+  <ParamField path="validators.onChange" type="FieldValidateOrFn<TParentData, TName, TData>">
+    Validator that runs on every change.
+  </ParamField>
+
+  <ParamField path="validators.onChangeAsync" type="FieldAsyncValidateOrFn<TParentData, TName, TData>">
+    Async validator that runs on change.
+  </ParamField>
+
+  <ParamField path="validators.onChangeAsyncDebounceMs" type="number">
+    Debounce time in milliseconds for async validation.
+  </ParamField>
+
+  <ParamField path="validators.onBlur" type="FieldValidateOrFn<TParentData, TName, TData>">
+    Validator that runs when the field loses focus.
+  </ParamField>
+
+  <ParamField path="validators.onMount" type="FieldValidateOrFn<TParentData, TName, TData>">
+    Validator that runs when the field is mounted.
+  </ParamField>
+</ParamField>
+
+<ParamField path="asyncDebounceMs" type="number">
+  Debounce time in milliseconds for async validation. Default is 500ms.
+</ParamField>
+
+<ParamField path="asyncAlways" type="boolean">
+  If true, async validation runs even if sync validation fails.
+</ParamField>
+
+<ParamField path="mode" type="'value' | 'array'">
+  The field mode. Use 'array' for array fields to enable array-specific methods.
+</ParamField>
+
+<ParamField path="disableErrorFlat" type="boolean">
+  If true, errors won't be flattened to a single array.
+</ParamField>
+
+## Export As
+
+```typescript
+#fieldName="field"
+```
+
+The directive can be exported with a template reference variable to access the field API.
+
+## Exported Properties
+
+<ResponseField name="api" type="FieldApi<TParentData, TName, TData>">
+  The field API instance.
+
+  <ResponseField name="api.name" type="TName">
+    The field name.
+  </ResponseField>
+
+  <ResponseField name="api.state" type="FieldState<TData>">
+    The current field state.
+
+    <ResponseField name="api.state.value" type="TData">
+      The current field value.
+    </ResponseField>
+
+    <ResponseField name="api.state.meta" type="FieldMeta">
+      Field metadata.
+
+      <ResponseField name="api.state.meta.errors" type="string[]">
+        Current validation errors.
+      </ResponseField>
+
+      <ResponseField name="api.state.meta.isTouched" type="boolean">
+        Whether the field has been touched.
+      </ResponseField>
+
+      <ResponseField name="api.state.meta.isDirty" type="boolean">
+        Whether the field value has changed.
+      </ResponseField>
+
+      <ResponseField name="api.state.meta.isValidating" type="boolean">
+        Whether async validation is in progress.
+      </ResponseField>
+    </ResponseField>
+  </ResponseField>
+
+  <ResponseField name="api.handleChange" type="(value: TData) => void">
+    Update the field value.
+  </ResponseField>
+
+  <ResponseField name="api.handleBlur" type="() => void">
+    Mark the field as touched.
+  </ResponseField>
+
+  <ResponseField name="api.pushValue" type="(value: TData extends Array<infer U> ? U : never) => void">
+    Add a value to an array field (only available when mode='array').
+  </ResponseField>
+
+  <ResponseField name="api.removeValue" type="(index: number) => void">
+    Remove a value from an array field (only available when mode='array').
+  </ResponseField>
+</ResponseField>
+
+## Usage Example
+
+### Basic Field
+
+```typescript
+import { Component } from '@angular/core'
+import { injectForm, TanStackField } from '@tanstack/angular-form'
+import type { FieldValidateFn } from '@tanstack/angular-form'
+
+@Component({
+  selector: 'app-form',
+  standalone: true,
+  imports: [TanStackField],
+  template: `
+    <form (submit)="handleSubmit($event)">
+      <ng-container
+        [tanstackField]="form"
+        name="email"
+        [validators]="{ onChange: emailValidator }"
+        #email="field"
+      >
+        <label [for]="email.api.name">Email:</label>
+        <input
+          [id]="email.api.name"
+          [name]="email.api.name"
+          [value]="email.api.state.value"
+          (blur)="email.api.handleBlur()"
+          (input)="email.api.handleChange($any($event).target.value)"
+        />
+        @if (email.api.state.meta.isTouched && email.api.state.meta.errors.length > 0) {
+          <div style="color: red">
+            {{ email.api.state.meta.errors[0] }}
+          </div>
+        }
+      </ng-container>
+      <button type="submit">Submit</button>
+    </form>
+  `,
+})
+export class FormComponent {
+  emailValidator: FieldValidateFn<any, string, any> = ({ value }) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return !emailRegex.test(value) ? 'Invalid email address' : undefined
+  }
+
+  form = injectForm({
+    defaultValues: {
+      email: '',
+    },
+    onSubmit({ value }) {
+      console.log('Email:', value.email)
+    },
+  })
+
+  handleSubmit(event: SubmitEvent) {
+    event.preventDefault()
+    this.form.handleSubmit()
+  }
+}
+```
+
+### Array Field
+
+```typescript
+import { Component } from '@angular/core'
+import { injectForm, TanStackField } from '@tanstack/angular-form'
+
+@Component({
+  selector: 'app-array-form',
+  standalone: true,
+  imports: [TanStackField],
+  template: `
+    <form>
+      <ng-container
+        [tanstackField]="form"
+        name="items"
+        mode="array"
+        #items="field"
+      >
+        @for (item of items.api.state.value; track $index) {
+          <div>
+            <ng-container
+              [tanstackField]="form"
+              [name]="'items[' + $index + '].name'"
+              #itemField="field"
+            >
+              <input
+                [value]="itemField.api.state.value"
+                (input)="itemField.api.handleChange($any($event).target.value)"
+              />
+            </ng-container>
+            <button (click)="items.api.removeValue($index)" type="button">
+              Remove
+            </button>
+          </div>
+        }
+        <button (click)="items.api.pushValue({ name: '' })" type="button">
+          Add Item
+        </button>
+      </ng-container>
+    </form>
+  `,
+})
+export class ArrayFormComponent {
+  form = injectForm({
+    defaultValues: {
+      items: [] as Array<{ name: string }>,
+    },
+    onSubmit({ value }) {
+      console.log(value)
+    },
+  })
+}
+```
+
+### Field with Async Validation
+
+```typescript
+import { Component } from '@angular/core'
+import { injectForm, TanStackField } from '@tanstack/angular-form'
+import type { FieldValidateAsyncFn } from '@tanstack/angular-form'
+
+@Component({
+  selector: 'app-async-form',
+  standalone: true,
+  imports: [TanStackField],
+  template: `
+    <ng-container
+      [tanstackField]="form"
+      name="username"
+      [validators]="{
+        onChange: usernameValidator,
+        onChangeAsync: usernameAsyncValidator,
+        onChangeAsyncDebounceMs: 500,
+      }"
+      #username="field"
+    >
+      <input
+        [value]="username.api.state.value"
+        (input)="username.api.handleChange($any($event).target.value)"
+      />
+      @if (username.api.state.meta.isValidating) {
+        <p>Validating...</p>
+      }
+      @if (username.api.state.meta.errors.length > 0) {
+        <div style="color: red">
+          {{ username.api.state.meta.errors[0] }}
+        </div>
+      }
+    </ng-container>
+  `,
+})
+export class AsyncFormComponent {
+  usernameValidator = ({ value }: { value: string }) =>
+    value.length < 3 ? 'Username must be at least 3 characters' : undefined
+
+  usernameAsyncValidator: FieldValidateAsyncFn<any, string, any> = async ({
+    value,
+  }) => {
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    return value === 'taken' ? 'Username already taken' : undefined
+  }
+
+  form = injectForm({
+    defaultValues: {
+      username: '',
+    },
+    onSubmit({ value }) {
+      console.log(value)
+    },
+  })
+}
+```
+
+## See Also
+
+- [injectForm](/api/angular/inject-form) - Create and manage forms in Angular
+- [FieldApi](/api/core/field-api) - Core field API documentation
+- [injectStore](https://tanstack.com/store/latest/docs/framework/angular/quick-start) - Subscribe to field state

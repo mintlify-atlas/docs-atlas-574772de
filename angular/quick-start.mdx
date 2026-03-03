@@ -1,0 +1,142 @@
+---
+title: Quick Start
+description: Get started with TanStack Form in Angular
+---
+
+Get started with TanStack Form in Angular by creating your first form with basic field handling and submission logic.
+
+## Installation
+
+Install the Angular Form package:
+
+```bash
+npm install @tanstack/angular-form
+```
+
+## Basic Form Setup
+
+The minimum setup requires creating a form instance with `injectForm` and adding a field using the `tanstackField` directive.
+
+<Steps>
+
+### Import the required modules
+
+Import `TanStackField` directive and `injectForm` function:
+
+```typescript
+import { Component } from '@angular/core'
+import { TanStackField, injectForm } from '@tanstack/angular-form'
+```
+
+### Create the form instance
+
+Use Angular's dependency injection to create a form instance in your component:
+
+```typescript
+form = injectForm({
+  defaultValues: {
+    fullName: '',
+  },
+  onSubmit({ value }) {
+    // Do something with form data
+    console.log(value)
+  },
+})
+```
+
+### Add fields to your template
+
+Use the `tanstackField` directive with a template reference variable to bind your input:
+
+```angular-html
+<ng-container
+  [tanstackField]="form"
+  name="fullName"
+  #fullName="field"
+>
+  <label [for]="fullName.api.name">First Name:</label>
+  <input
+    [name]="fullName.api.name"
+    [value]="fullName.api.state.value"
+    (blur)="fullName.api.handleBlur()"
+    (input)="fullName.api.handleChange($any($event).target.value)"
+  />
+</ng-container>
+```
+
+### Handle form submission
+
+Prevent default form submission and call the form's `handleSubmit` method:
+
+```typescript
+handleSubmit(event: SubmitEvent) {
+  event.preventDefault()
+  event.stopPropagation()
+  this.form.handleSubmit()
+}
+```
+
+</Steps>
+
+## Complete Example
+
+Here's a complete working example:
+
+```typescript
+import { Component } from '@angular/core'
+import { bootstrapApplication } from '@angular/platform-browser'
+import { TanStackField, injectForm } from '@tanstack/angular-form'
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [TanStackField],
+  template: `
+    <form (submit)="handleSubmit($event)">
+      <div>
+        <ng-container
+          [tanstackField]="form"
+          name="fullName"
+          #fullName="field"
+        >
+          <label [for]="fullName.api.name">First Name:</label>
+          <input
+            [name]="fullName.api.name"
+            [value]="fullName.api.state.value"
+            (blur)="fullName.api.handleBlur()"
+            (input)="fullName.api.handleChange($any($event).target.value)"
+          />
+        </ng-container>
+      </div>
+      <button type="submit">Submit</button>
+    </form>
+  `,
+})
+export class AppComponent {
+  form = injectForm({
+    defaultValues: {
+      fullName: '',
+    },
+    onSubmit({ value }) {
+      // Do something with form data
+      console.log(value)
+    },
+  })
+
+  handleSubmit(event: SubmitEvent) {
+    event.preventDefault()
+    event.stopPropagation()
+    this.form.handleSubmit()
+  }
+}
+
+bootstrapApplication(AppComponent).catch((err) => console.error(err))
+```
+
+## Next Steps
+
+Now that you have a basic form working, explore more features:
+
+- Learn about [basic concepts](/angular/basic-concepts) like field state and reactivity
+- Add [validation](/angular/validation) to your forms
+- Work with [array fields](/angular/arrays) for dynamic lists

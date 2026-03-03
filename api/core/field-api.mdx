@@ -1,0 +1,553 @@
+---
+title: FieldApi
+description: Core class for managing individual form fields
+---
+
+# FieldApi
+
+The `FieldApi` class provides methods to interact with individual form fields, including getting and setting values, managing metadata, and performing validation.
+
+## Constructor
+
+```typescript
+new FieldApi<TParentData, TName, TData>(options: FieldApiOptions<TParentData, TName, TData>)
+```
+
+Creates a new FieldApi instance.
+
+<ParamField path="options" type="FieldApiOptions" required>
+  Configuration options for the field. See [FieldOptions](/api/core/field-options) for details.
+</ParamField>
+
+<ResponseField name="FieldApi" type="FieldApi">
+  A new FieldApi instance
+</ResponseField>
+
+### Example
+
+```typescript
+import { FormApi, FieldApi } from '@tanstack/form-core'
+
+const form = new FormApi({ defaultValues: { firstName: '' } })
+
+const field = new FieldApi({
+  form,
+  name: 'firstName',
+  validators: {
+    onChange: ({ value }) => {
+      if (value.length < 2) {
+        return 'First name must be at least 2 characters'
+      }
+      return undefined
+    },
+  },
+})
+```
+
+## Properties
+
+### form
+
+```typescript
+form: FormApi<TParentData>
+```
+
+A reference to the parent form API instance.
+
+### name
+
+```typescript
+name: TName
+```
+
+The field name (supports dot notation for nested fields).
+
+### options
+
+```typescript
+options: FieldApiOptions<TParentData, TName, TData>
+```
+
+The current options for the field.
+
+### state
+
+```typescript
+get state(): FieldState<TParentData, TName, TData>
+```
+
+The current state of the field, including value and metadata.
+
+## Methods
+
+### mount()
+
+Mounts the field instance to the form. Returns a cleanup function.
+
+```typescript
+mount(): () => void
+```
+
+<ResponseField name="cleanup" type="() => void">
+  A function to call when unmounting the field
+</ResponseField>
+
+#### Example
+
+```typescript
+const cleanup = field.mount()
+
+// Later, when unmounting
+cleanup()
+```
+
+### update()
+
+Updates the field instance with new options.
+
+```typescript
+update(opts: FieldApiOptions): void
+```
+
+<ParamField path="opts" type="FieldApiOptions" required>
+  New options to apply to the field
+</ParamField>
+
+### getValue()
+
+<Warning>
+  **Deprecated**: Use `field.state.value` instead.
+</Warning>
+
+Gets the current field value.
+
+```typescript
+getValue(): TData
+```
+
+<ResponseField name="value" type="TData">
+  The current value of the field
+</ResponseField>
+
+### setValue()
+
+Sets the field value and runs the change validator.
+
+```typescript
+setValue(
+  updater: Updater<TData>,
+  options?: UpdateMetaOptions
+): void
+```
+
+<ParamField path="updater" type="Updater<TData>" required>
+  A value or function that returns the new value
+</ParamField>
+
+<ParamField path="options.dontUpdateMeta" type="boolean" optional default={false}>
+  If true, does not update field metadata
+</ParamField>
+
+<ParamField path="options.dontValidate" type="boolean" optional default={false}>
+  If true, does not trigger validation
+</ParamField>
+
+<ParamField path="options.dontRunListeners" type="boolean" optional default={false}>
+  If true, does not run field listeners
+</ParamField>
+
+#### Example
+
+```typescript
+// Set a value directly
+field.setValue('John')
+
+// Set a value using an updater function
+field.setValue((prev) => prev.toUpperCase())
+
+// Set a value without validation
+field.setValue('John', { dontValidate: true })
+```
+
+### getMeta()
+
+Gets the field metadata.
+
+```typescript
+getMeta(): FieldMeta
+```
+
+<ResponseField name="meta" type="FieldMeta">
+  The field metadata including errors, touched state, validation status, etc.
+</ResponseField>
+
+#### Example
+
+```typescript
+const meta = field.getMeta()
+console.log('Is touched:', meta.isTouched)
+console.log('Is valid:', meta.isValid)
+console.log('Errors:', meta.errors)
+```
+
+### setMeta()
+
+Sets the field metadata.
+
+```typescript
+setMeta(updater: Updater<FieldMetaBase>): void
+```
+
+<ParamField path="updater" type="Updater<FieldMetaBase>" required>
+  A value or function that returns the new metadata
+</ParamField>
+
+#### Example
+
+```typescript
+// Mark field as touched
+field.setMeta((prev) => ({ ...prev, isTouched: true }))
+
+// Clear errors
+field.setMeta((prev) => ({ ...prev, errorMap: {} }))
+```
+
+### getInfo()
+
+Gets the field information object.
+
+```typescript
+getInfo(): FieldInfo<TParentData>
+```
+
+<ResponseField name="info" type="FieldInfo">
+  The field information object containing the field instance and validation metadata
+</ResponseField>
+
+### validate()
+
+Validates the field value.
+
+```typescript
+validate(
+  cause: ValidationCause,
+  opts?: { skipFormValidation?: boolean }
+): ValidationError[] | Promise<ValidationError[]>
+```
+
+<ParamField path="cause" type="'change' | 'blur' | 'submit' | 'mount'" required>
+  The cause of the validation
+</ParamField>
+
+<ParamField path="opts.skipFormValidation" type="boolean" optional default={false}>
+  If true, skips form-level validation for this field
+</ParamField>
+
+<ResponseField name="errors" type="ValidationError[] | Promise<ValidationError[]>">
+  Array of validation errors (if any)
+</ResponseField>
+
+#### Example
+
+```typescript
+const errors = await field.validate('change')
+if (errors.length > 0) {
+  console.log('Validation failed:', errors)
+}
+```
+
+### handleChange()
+
+Handles the change event for the field.
+
+```typescript
+handleChange(updater: Updater<TData>): void
+```
+
+<ParamField path="updater" type="Updater<TData>" required>
+  A value or function that returns the new value
+</ParamField>
+
+#### Example
+
+```typescript
+// In a React component
+<input
+  value={field.state.value}
+  onChange={(e) => field.handleChange(e.target.value)}
+/>
+```
+
+### handleBlur()
+
+Handles the blur event for the field.
+
+```typescript
+handleBlur(): void
+```
+
+#### Example
+
+```typescript
+<input
+  value={field.state.value}
+  onChange={(e) => field.handleChange(e.target.value)}
+  onBlur={field.handleBlur}
+/>
+```
+
+### Array Field Methods
+
+The FieldApi provides methods for working with array values:
+
+#### pushValue()
+
+Pushes a new value to the array field.
+
+```typescript
+pushValue(
+  value: TData[number],
+  options?: UpdateMetaOptions
+): void
+```
+
+<ParamField path="value" type="TData[number]" required>
+  The value to push
+</ParamField>
+
+<ParamField path="options" type="UpdateMetaOptions" optional>
+  Options to control metadata updates, validation, and listeners
+</ParamField>
+
+#### insertValue()
+
+Inserts a value at the specified index.
+
+```typescript
+insertValue(
+  index: number,
+  value: TData[number],
+  options?: UpdateMetaOptions
+): void
+```
+
+<ParamField path="index" type="number" required>
+  The index to insert at
+</ParamField>
+
+<ParamField path="value" type="TData[number]" required>
+  The value to insert
+</ParamField>
+
+#### replaceValue()
+
+Replaces a value at the specified index.
+
+```typescript
+replaceValue(
+  index: number,
+  value: TData[number],
+  options?: UpdateMetaOptions
+): void
+```
+
+<ParamField path="index" type="number" required>
+  The index to replace
+</ParamField>
+
+<ParamField path="value" type="TData[number]" required>
+  The new value
+</ParamField>
+
+#### removeValue()
+
+Removes a value at the specified index.
+
+```typescript
+removeValue(
+  index: number,
+  options?: UpdateMetaOptions
+): void
+```
+
+<ParamField path="index" type="number" required>
+  The index to remove
+</ParamField>
+
+#### swapValues()
+
+Swaps the values at two indices.
+
+```typescript
+swapValues(
+  aIndex: number,
+  bIndex: number,
+  options?: UpdateMetaOptions
+): void
+```
+
+<ParamField path="aIndex" type="number" required>
+  The first index
+</ParamField>
+
+<ParamField path="bIndex" type="number" required>
+  The second index
+</ParamField>
+
+#### moveValue()
+
+Moves a value from one index to another.
+
+```typescript
+moveValue(
+  aIndex: number,
+  bIndex: number,
+  options?: UpdateMetaOptions
+): void
+```
+
+<ParamField path="aIndex" type="number" required>
+  The source index
+</ParamField>
+
+<ParamField path="bIndex" type="number" required>
+  The destination index
+</ParamField>
+
+#### clearValues()
+
+Clears all values from the array.
+
+```typescript
+clearValues(options?: UpdateMetaOptions): void
+```
+
+#### Example: Working with Array Fields
+
+```typescript
+const todosField = new FieldApi({
+  form,
+  name: 'todos',
+  defaultValue: [],
+})
+
+// Add a new todo
+todosField.pushValue({ text: 'Buy milk', completed: false })
+
+// Insert at position 0
+todosField.insertValue(0, { text: 'First task', completed: false })
+
+// Remove the second item
+todosField.removeValue(1)
+
+// Swap first and second items
+todosField.swapValues(0, 1)
+
+// Clear all todos
+todosField.clearValues()
+```
+
+### setErrorMap()
+
+Updates the field's error map.
+
+```typescript
+setErrorMap(errorMap: ValidationErrorMap): void
+```
+
+<ParamField path="errorMap" type="ValidationErrorMap" required>
+  The new error map to set
+</ParamField>
+
+#### Example
+
+```typescript
+field.setErrorMap({
+  onChange: 'This field is required',
+  onBlur: undefined,
+})
+```
+
+### parseValueWithSchema()
+
+Parses the field's value with a given schema and returns issues (if any). This method does NOT set any internal errors.
+
+```typescript
+parseValueWithSchema(
+  schema: StandardSchemaV1<TData>
+): StandardSchemaV1Issue[] | undefined
+```
+
+<ParamField path="schema" type="StandardSchemaV1<TData>" required>
+  The standard schema to parse this field's value with
+</ParamField>
+
+<ResponseField name="issues" type="StandardSchemaV1Issue[] | undefined">
+  Array of schema validation issues (if any)
+</ResponseField>
+
+### parseValueWithSchemaAsync()
+
+Async version of parseValueWithSchema.
+
+```typescript
+parseValueWithSchemaAsync(
+  schema: StandardSchemaV1<TData>
+): Promise<StandardSchemaV1Issue[] | undefined>
+```
+
+<ParamField path="schema" type="StandardSchemaV1<TData>" required>
+  The standard schema to parse this field's value with
+</ParamField>
+
+<ResponseField name="issues" type="Promise<StandardSchemaV1Issue[] | undefined>">
+  Promise resolving to array of schema validation issues (if any)
+</ResponseField>
+
+## Type Parameters
+
+<ParamField path="TParentData" type="any" required>
+  The TypeScript type of the parent form data
+</ParamField>
+
+<ParamField path="TName" type="DeepKeys<TParentData>" required>
+  The field name type (supports dot notation)
+</ParamField>
+
+<ParamField path="TData" type="DeepValue<TParentData, TName>" required>
+  The TypeScript type of the field value
+</ParamField>
+
+<ParamField path="TOnMount" type="FieldValidateOrFn" optional>
+  Type of the onMount validator
+</ParamField>
+
+<ParamField path="TOnChange" type="FieldValidateOrFn" optional>
+  Type of the onChange validator
+</ParamField>
+
+<ParamField path="TOnChangeAsync" type="FieldAsyncValidateOrFn" optional>
+  Type of the onChangeAsync validator
+</ParamField>
+
+<ParamField path="TOnBlur" type="FieldValidateOrFn" optional>
+  Type of the onBlur validator
+</ParamField>
+
+<ParamField path="TOnBlurAsync" type="FieldAsyncValidateOrFn" optional>
+  Type of the onBlurAsync validator
+</ParamField>
+
+<ParamField path="TOnSubmit" type="FieldValidateOrFn" optional>
+  Type of the onSubmit validator
+</ParamField>
+
+<ParamField path="TOnSubmitAsync" type="FieldAsyncValidateOrFn" optional>
+  Type of the onSubmitAsync validator
+</ParamField>
+
+## See Also
+
+- [FormApi](/api/core/form-api) - API for managing the entire form
+- [FieldOptions](/api/core/field-options) - Configuration options for fields
+- [Validators](/api/core/validators) - Validation functions and types

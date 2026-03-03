@@ -1,0 +1,373 @@
+---
+title: Custom Error Handling
+description: Learn how to use different error types beyond strings for rich error handling in your forms
+---
+
+TanStack Form provides complete flexibility in the types of error values you can return from validators. While string errors are the most common, the library allows you to return any type of value from your validators.
+
+## Error Type Rules
+
+As a general rule:
+
+- **Any truthy value** is considered an error and will mark the form or field as invalid
+- **Falsy values** (`false`, `undefined`, `null`, etc.) mean there is no error, and the form or field is valid
+
+## String Errors
+
+String errors are the most common and easiest to work with:
+
+### Field-Level String Errors
+
+```tsx
+<form.Field
+  name="username"
+  validators={{
+    onChange: ({ value }) =>
+      value.length < 3 ? 'Username must be at least 3 characters' : undefined,
+  }}
+>
+  {(field) => (
+    <div>
+      <input
+        value={field.state.value}
+        onChange={(e) => field.handleChange(e.target.value)}
+      />
+      {field.state.meta.errors.map((error, i) => (
+        <div key={i} className="error">
+          {error}
+        </div>
+      ))}
+    </div>
+  )}
+</form.Field>
+```
+
+### Form-Level String Errors
+
+For form-level validation affecting multiple fields:
+
+```tsx
+const form = useForm({
+  defaultValues: {
+    username: '',
+    email: '',
+  },
+  validators: {
+    onChange: ({ value }) => {
+      return {
+        fields: {
+          username:
+            value.username.length < 3 ? 'Username too short' : undefined,
+          email: !value.email.includes('@') ? 'Invalid email' : undefined,
+        },
+      }
+    },
+  },
+})
+```
+
+## Number Errors
+
+Numbers are useful for representing quantities, thresholds, or magnitudes:
+
+```tsx
+<form.Field
+  name="age"
+  validators={{
+    onChange: ({ value }) => (value < 18 ? 18 - value : undefined),
+  }}
+>
+  {(field) => (
+    <div>
+      <input
+        type="number"
+        value={field.state.value}
+        onChange={(e) => field.handleChange(parseInt(e.target.value))}
+      />
+      {field.state.meta.errors[0] && (
+        <div className="error">
+          You need {field.state.meta.errors[0]} more years to be eligible
+        </div>
+      )}
+    </div>
+  )}
+</form.Field>
+```
+
+<Tip>
+  TypeScript will correctly infer the error type based on your validator, giving you full type safety when rendering errors.
+</Tip>
+
+## Boolean Errors
+
+Simple flags to indicate error state:
+
+```tsx
+<form.Field
+  name="accepted"
+  validators={{
+    onChange: ({ value }) => (!value ? true : undefined),
+  }}
+>
+  {(field) => (
+    <div>
+      <label>
+        <input
+          type="checkbox"
+          checked={field.state.value}
+          onChange={(e) => field.handleChange(e.target.checked)}
+        />
+        Accept terms and conditions
+      </label>
+      {field.state.meta.errors[0] === true && (
+        <div className="error">You must accept the terms</div>
+      )}
+    </div>
+  )}
+</form.Field>
+```
+
+## Object Errors
+
+Rich error objects with multiple properties provide the most flexibility:
+
+```tsx
+<form.Field
+  name="email"
+  validators={{
+    onChange: ({ value }) => {
+      if (!value.includes('@')) {
+        return {
+          message: 'Invalid email format',
+          severity: 'error',
+          code: 1001,
+        }
+      }
+      return undefined
+    },
+  }}
+>
+  {(field) => (
+    <div>
+      <input
+        value={field.state.value}
+        onChange={(e) => field.handleChange(e.target.value)}
+      />
+      {typeof field.state.meta.errors[0] === 'object' && (
+        <div className={`error ${field.state.meta.errors[0].severity}`}>
+          {field.state.meta.errors[0].message}
+          <small> (Code: {field.state.meta.errors[0].code})</small>
+        </div>
+      )}
+    </div>
+  )}
+</form.Field>
+```
+
+Object errors are useful for:
+
+- Different severity levels (error, warning, info)
+- Error codes for internationalization
+- Additional metadata like help links or suggested fixes
+- Styling hints or icons
+
+## Array Errors
+
+Multiple error messages for a single field:
+
+```tsx
+<form.Field
+  name="password"
+  validators={{
+    onChange: ({ value }) => {
+      const errors = []
+      if (value.length < 8) errors.push('Password too short')
+      if (!/[A-Z]/.test(value)) errors.push('Missing uppercase letter')
+      if (!/[0-9]/.test(value)) errors.push('Missing number')
+      if (!/[^A-Za-z0-9]/.test(value)) errors.push('Missing special character')
+
+      return errors.length ? errors : undefined
+    },
+  }}
+>
+  {(field) => (
+    <div>
+      <input
+        type="password"
+        value={field.state.value}
+        onChange={(e) => field.handleChange(e.target.value)}
+      />
+      {Array.isArray(field.state.meta.errors[0]) && (
+        <ul className="error-list">
+          {field.state.meta.errors[0].map((err, i) => (
+            <li key={i}>{err}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )}
+</form.Field>
+```
+
+<Tip>
+  Array errors are particularly useful for password requirements or multi-rule validation where you want to show all failing requirements at once.
+</Tip>
+
+## The disableErrorFlat Prop
+
+By default, TanStack Form flattens errors from all validation sources (`onChange`, `onBlur`, `onSubmit`) into a single `errors` array. The `disableErrorFlat` prop preserves the error sources:
+
+```tsx
+<form.Field
+  name="email"
+  disableErrorFlat
+  validators={{
+    onChange: ({ value }) =>
+      !value.includes('@') ? 'Invalid email format' : undefined,
+    onBlur: ({ value }) =>
+      !value.endsWith('.com') ? 'Only .com domains allowed' : undefined,
+    onSubmit: ({ value }) => (value.length < 5 ? 'Email too short' : undefined),
+  }}
+>
+  {(field) => (
+    <div>
+      <input
+        value={field.state.value}
+        onChange={(e) => field.handleChange(e.target.value)}
+        onBlur={field.handleBlur}
+      />
+      
+      {field.state.meta.errorMap.onChange && (
+        <div className="real-time-error">
+          {field.state.meta.errorMap.onChange}
+        </div>
+      )}
+
+      {field.state.meta.errorMap.onBlur && (
+        <div className="blur-feedback">
+          {field.state.meta.errorMap.onBlur}
+        </div>
+      )}
+
+      {field.state.meta.errorMap.onSubmit && (
+        <div className="submit-error">
+          {field.state.meta.errorMap.onSubmit}
+        </div>
+      )}
+    </div>
+  )}
+</form.Field>
+```
+
+This is useful for:
+
+- Displaying different types of errors with different UI treatments
+- Prioritizing errors (e.g., showing submission errors more prominently)
+- Implementing progressive disclosure of errors
+- Styling errors differently based on their trigger
+
+<Warning>
+  When using `disableErrorFlat`, remember that `field.state.meta.errors` will be empty. Access errors through `field.state.meta.errorMap` instead.
+</Warning>
+
+## Type Safety
+
+TanStack Form provides strong type safety for error handling. Each key in the `errorMap` has exactly the type returned by its corresponding validator:
+
+```tsx
+<form.Field
+  name="password"
+  validators={{
+    onChange: ({ value }): string | undefined => {
+      // This returns a string or undefined
+      return value.length < 8 ? 'Too short' : undefined
+    },
+    onBlur: ({ value }): { message: string; level: string } | undefined => {
+      // This returns an object or undefined
+      if (!/[A-Z]/.test(value)) {
+        return { message: 'Missing uppercase', level: 'warning' }
+      }
+      return undefined
+    },
+  }}
+>
+  {(field) => {
+    // TypeScript knows errors can be string | { message, level } | undefined
+    const error = field.state.meta.errors[0]
+
+    // Type-safe error handling
+    if (typeof error === 'string') {
+      return <div className="string-error">{error}</div>
+    } else if (error && typeof error === 'object') {
+      return <div className={error.level}>{error.message}</div>
+    }
+
+    return null
+  }}
+</form.Field>
+```
+
+### Type Safety with errorMap
+
+```tsx
+<form.Field
+  name="email"
+  disableErrorFlat
+  validators={{
+    onChange: ({ value }): string | undefined =>
+      !value.includes("@") ? "Invalid email" : undefined,
+    onBlur: ({ value }): { code: number; message: string } | undefined =>
+      !value.endsWith(".com") ? { code: 100, message: "Wrong domain" } : undefined,
+  }}
+>
+  {(field) => {
+    // TypeScript knows the exact type of each error source
+    const onChangeError: string | undefined = field.state.meta.errorMap.onChange
+    const onBlurError: { code: number; message: string } | undefined = 
+      field.state.meta.errorMap.onBlur
+
+    return (
+      <div>
+        {onChangeError && <span>{onChangeError}</span>}
+        {onBlurError && (
+          <span>
+            {onBlurError.message} (Code: {onBlurError.code})
+          </span>
+        )}
+      </div>
+    )
+  }}
+</form.Field>
+```
+
+<Tip>
+  Type safety helps catch errors at compile time instead of runtime, making your code more reliable and maintainable.
+</Tip>
+
+## Best Practices
+
+1. **Consistency**: Use the same error type throughout your application for easier maintenance
+2. **Rich when needed**: Use object errors only when you need the extra metadata
+3. **User-friendly**: Ensure error messages are clear and actionable
+4. **Accessibility**: Make sure error messages are properly associated with form fields for screen readers
+5. **Internationalization**: Consider using error codes or keys that can be translated
+
+```tsx
+// Good: Consistent error handling
+const errors = {
+  REQUIRED: 'This field is required',
+  TOO_SHORT: 'Must be at least 3 characters',
+  INVALID_EMAIL: 'Please enter a valid email',
+}
+
+<form.Field
+  name="email"
+  validators={{
+    onChange: ({ value }) => {
+      if (!value) return errors.REQUIRED
+      if (!value.includes('@')) return errors.INVALID_EMAIL
+      return undefined
+    },
+  }}
+/>
+```

@@ -1,0 +1,407 @@
+---
+title: Arrays
+description: Working with array fields in TanStack Form for Solid
+---
+
+TanStack Form supports arrays as values in a form, including sub-object values inside of an array. This is useful for dynamic lists like multiple addresses, phone numbers, or any repeating data structure.
+
+## Basic Usage
+
+<Steps>
+
+<Step title="Create an array field">
+
+Use `form.Field` with `mode="array"` (optional but recommended for type safety). Access array values through `field().state.value`:
+
+```tsx
+function App() {
+  const form = createForm(() => ({
+    defaultValues: {
+      people: [],
+    },
+  }))
+
+  return (
+    <form.Field name="people" mode="array">
+      {(field) => (
+        <Show when={field().state.value.length > 0}>
+          {/* Array items will go here */}
+        </Show>
+      )}
+    </form.Field>
+  )
+}
+```
+
+</Step>
+
+<Step title="Use Index from solid-js">
+
+Use [`Index` from `solid-js`](https://www.solidjs.com/tutorial/flow_index) to render array items. Do **not** use `For` as it will cause re-renders that delete subfield values:
+
+```tsx
+<form.Field name="people" mode="array">
+  {(field) => (
+    <Show when={field().state.value.length > 0}>
+      <Index each={field().state.value}>
+        {(_, i) => (
+          // Render each item here
+          null
+        )}
+      </Index>
+    </Show>
+  )}
+</form.Field>
+```
+
+</Step>
+
+<Step title="Add items with pushValue">
+
+Use `field().pushValue()` to add new items to the array:
+
+```tsx
+<button onClick={() => field().pushValue({ name: '', age: 0 })} type="button">
+  Add person
+</button>
+```
+
+</Step>
+
+<Step title="Create subfields">
+
+Create fields for array items using bracket notation:
+
+```tsx
+<form.Field name={`people[${i}].name`}>
+  {(subField) => (
+    <input
+      value={subField().state.value}
+      onInput={(e) => {
+        subField().handleChange(e.currentTarget.value)
+      }}
+    />
+  )}
+</form.Field>
+```
+
+</Step>
+
+</Steps>
+
+<Warning>
+  You **must** use `Index` from `solid-js` and **not** `For`. Using `For` will cause the inner components to be re-rendered every time the array changes, which causes fields to lose their values.
+</Warning>
+
+## Complete Example
+
+Here's a full working example from the TanStack Form repository:
+
+```tsx
+import { createForm } from '@tanstack/solid-form'
+import { Index, Show } from 'solid-js'
+
+function App() {
+  const form = createForm(() => ({
+    defaultValues: {
+      people: [] as Array<{ age: number; name: string }>,
+    },
+    onSubmit: ({ value }) => alert(JSON.stringify(value)),
+  }))
+
+  return (
+    <div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          form.handleSubmit()
+        }}
+      >
+        <form.Field name="people">
+          {(field) => (
+            <div>
+              <Show when={field().state.value.length > 0}>
+                {/* Do not change this to For or the test will fail */}
+                <Index each={field().state.value}>
+                  {(_, i) => (
+                    <form.Field name={`people[${i}].name`}>
+                      {(subField) => (
+                        <div>
+                          <label>
+                            <div>Name for person {i}</div>
+                            <input
+                              value={subField().state.value}
+                              onInput={(e) => {
+                                subField().handleChange(e.currentTarget.value)
+                              }}
+                            />
+                          </label>
+                        </div>
+                      )}
+                    </form.Field>
+                  )}
+                </Index>
+              </Show>
+
+              <button
+                onClick={() => field().pushValue({ name: '', age: 0 })}
+                type="button"
+              >
+                Add person
+              </button>
+            </div>
+          )}
+        </form.Field>
+        <button type="submit">Submit</button>
+      </form>
+    </div>
+  )
+}
+```
+
+## Array Field Methods
+
+The array field API provides several methods for manipulating the array:
+
+### pushValue
+
+Add an item to the end of the array:
+
+```tsx
+field().pushValue({ name: '', age: 0 })
+```
+
+### removeValue
+
+Remove an item at a specific index:
+
+```tsx
+<button type="button" onClick={() => field().removeValue(i)}>
+  Remove
+</button>
+```
+
+### insertValue
+
+Insert an item at a specific index:
+
+```tsx
+field().insertValue(2, { name: '', age: 0 })
+```
+
+### replaceValue
+
+Replace an item at a specific index:
+
+```tsx
+field().replaceValue(i, { name: 'New Name', age: 25 })
+```
+
+### swapValues
+
+Swap two items in the array:
+
+```tsx
+field().swapValues(0, 2)
+```
+
+### moveValue
+
+Move an item from one index to another:
+
+```tsx
+field().moveValue(0, 3)
+```
+
+### clearValues
+
+Remove all items from the array:
+
+```tsx
+field().clearValues()
+```
+
+## Working with Complex Objects
+
+Array items can contain nested objects with multiple fields:
+
+```tsx
+<form.Field name="hobbies" mode="array">
+  {(hobbiesField) => (
+    <div>
+      <h3>Hobbies</h3>
+      <Show
+        when={hobbiesField().state.value.length > 0}
+        fallback={<p>No hobbies found.</p>}
+      >
+        <Index each={hobbiesField().state.value}>
+          {(_, i) => (
+            <div>
+              <form.Field name={`hobbies[${i}].name`}>
+                {(field) => (
+                  <div>
+                    <label for={field().name}>Name:</label>
+                    <input
+                      id={field().name}
+                      name={field().name}
+                      value={field().state.value}
+                      onBlur={field().handleBlur}
+                      onInput={(e) => field().handleChange(e.target.value)}
+                    />
+                  </div>
+                )}
+              </form.Field>
+
+              <form.Field name={`hobbies[${i}].description`}>
+                {(field) => (
+                  <div>
+                    <label for={field().name}>Description:</label>
+                    <input
+                      id={field().name}
+                      name={field().name}
+                      value={field().state.value}
+                      onBlur={field().handleBlur}
+                      onInput={(e) => field().handleChange(e.target.value)}
+                    />
+                  </div>
+                )}
+              </form.Field>
+
+              <form.Field name={`hobbies[${i}].yearsOfExperience`}>
+                {(field) => (
+                  <div>
+                    <label for={field().name}>Years of Experience:</label>
+                    <input
+                      id={field().name}
+                      name={field().name}
+                      value={field().state.value}
+                      type="number"
+                      onInput={(e) => field().handleChange(e.target.valueAsNumber)}
+                    />
+                  </div>
+                )}
+              </form.Field>
+
+              <button
+                type="button"
+                onClick={() => hobbiesField().removeValue(i)}
+              >
+                Remove Hobby
+              </button>
+            </div>
+          )}
+        </Index>
+      </Show>
+
+      <button
+        type="button"
+        onClick={() =>
+          hobbiesField().pushValue({
+            name: '',
+            description: '',
+            yearsOfExperience: 0,
+          })
+        }
+      >
+        Add Hobby
+      </button>
+    </div>
+  )}
+</form.Field>
+```
+
+## Validation with Arrays
+
+You can add validation to both the array field and individual array items:
+
+### Array-Level Validation
+
+```tsx
+<form.Field
+  name="people"
+  mode="array"
+  validators={{
+    onChange: ({ value }) =>
+      value.length === 0 ? 'At least one person is required' : undefined,
+  }}
+>
+  {(field) => (
+    <>
+      {/* Array rendering */}
+      {field().state.meta.errors.length > 0 ? (
+        <em>{field().state.meta.errors.join(', ')}</em>
+      ) : null}
+    </>
+  )}
+</form.Field>
+```
+
+### Item-Level Validation
+
+```tsx
+<form.Field
+  name={`people[${i}].name`}
+  validators={{
+    onChange: ({ value }) =>
+      value.length < 2 ? 'Name must be at least 2 characters' : undefined,
+  }}
+>
+  {(field) => (
+    <>
+      <input
+        value={field().state.value}
+        onInput={(e) => field().handleChange(e.currentTarget.value)}
+      />
+      {field().state.meta.errors.length > 0 ? (
+        <em>{field().state.meta.errors[0]}</em>
+      ) : null}
+    </>
+  )}
+</form.Field>
+```
+
+## Common Patterns
+
+### Empty State
+
+Show a message when the array is empty:
+
+```tsx
+<Show
+  when={field().state.value.length > 0}
+  fallback={<p>No items yet. Click "Add" to get started.</p>}
+>
+  {/* Array rendering */}
+</Show>
+```
+
+### Item Counter
+
+Display the number of items:
+
+```tsx
+<p>Total items: {field().state.value.length}</p>
+```
+
+### Drag and Drop Reordering
+
+Use `swapValues` or `moveValue` for drag-and-drop:
+
+```tsx
+<button onClick={() => field().moveValue(i, i - 1)} disabled={i === 0}>
+  Move Up
+</button>
+<button
+  onClick={() => field().moveValue(i, i + 1)}
+  disabled={i === field().state.value.length - 1}
+>
+  Move Down
+</button>
+```
+
+## Next Steps
+
+- [Validation](/solid/validation) - Add validation to array fields
+- [Basic Concepts](/solid/basic-concepts) - Review core concepts
+- [Quick Start](/solid/quick-start) - Start building forms

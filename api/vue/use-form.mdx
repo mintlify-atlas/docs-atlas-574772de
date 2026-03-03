@@ -1,0 +1,192 @@
+---
+title: useForm
+description: API reference for the useForm composable in Vue
+---
+
+The `useForm` composable is the primary way to create and manage forms in Vue applications using TanStack Form.
+
+## Import
+
+```typescript
+import { useForm } from '@tanstack/vue-form'
+```
+
+## Signature
+
+```typescript
+function useForm<
+  TParentData,
+  TFormOnMount extends undefined | FormValidateOrFn<TParentData>,
+  TFormOnChange extends undefined | FormValidateOrFn<TParentData>,
+  TFormOnChangeAsync extends undefined | FormAsyncValidateOrFn<TParentData>,
+  TFormOnBlur extends undefined | FormValidateOrFn<TParentData>,
+  TFormOnBlurAsync extends undefined | FormAsyncValidateOrFn<TParentData>,
+  TFormOnSubmit extends undefined | FormValidateOrFn<TParentData>,
+  TFormOnSubmitAsync extends undefined | FormAsyncValidateOrFn<TParentData>,
+  TFormOnDynamic extends undefined | FormValidateOrFn<TParentData>,
+  TFormOnDynamicAsync extends undefined | FormAsyncValidateOrFn<TParentData>,
+  TFormOnServer extends undefined | FormAsyncValidateOrFn<TParentData>,
+  TSubmitMeta,
+>(
+  opts?: FormOptions<
+    TParentData,
+    TFormOnMount,
+    TFormOnChange,
+    TFormOnChangeAsync,
+    TFormOnBlur,
+    TFormOnBlurAsync,
+    TFormOnSubmit,
+    TFormOnSubmitAsync,
+    TFormOnDynamic,
+    TFormOnDynamicAsync,
+    TFormOnServer,
+    TSubmitMeta
+  >,
+): VueFormExtendedApi<...>
+```
+
+## Parameters
+
+<ParamField path="opts" type="FormOptions<TFormData>">
+  Optional configuration object for the form.
+
+  <ParamField path="opts.defaultValues" type="TFormData">
+    Initial values for the form fields.
+  </ParamField>
+
+  <ParamField path="opts.onSubmit" type="(values: FormSubmitData<TFormData>) => void | Promise<void>">
+    Callback function called when the form is submitted.
+  </ParamField>
+
+  <ParamField path="opts.validators" type="FormValidators<TFormData>">
+    Validation functions for the form.
+
+    <ParamField path="opts.validators.onChange" type="FormValidateOrFn<TFormData>">
+      Validator that runs on every change.
+    </ParamField>
+
+    <ParamField path="opts.validators.onChangeAsync" type="FormAsyncValidateOrFn<TFormData>">
+      Async validator that runs on change with debouncing.
+    </ParamField>
+
+    <ParamField path="opts.validators.onBlur" type="FormValidateOrFn<TFormData>">
+      Validator that runs when the form loses focus.
+    </ParamField>
+
+    <ParamField path="opts.validators.onMount" type="FormValidateOrFn<TFormData>">
+      Validator that runs when the form is mounted.
+    </ParamField>
+  </ParamField>
+</ParamField>
+
+## Return Value
+
+<ResponseField name="api" type="VueFormExtendedApi<TFormData>">
+  The form API instance with Vue-specific extensions.
+
+  <ResponseField name="Field" type="FieldComponent<TFormData>">
+    A Vue component for rendering individual form fields.
+  </ResponseField>
+
+  <ResponseField name="useField" type="UseField<TFormData>">
+    A composable for creating and managing individual fields.
+  </ResponseField>
+
+  <ResponseField name="useStore" type="(selector?) => Readonly<Ref<TSelected>>">
+    A composable for subscribing to form state changes.
+  </ResponseField>
+
+  <ResponseField name="Subscribe" type="Component">
+    A component for subscribing to form state.
+  </ResponseField>
+
+  <ResponseField name="handleSubmit" type="() => void">
+    Function to trigger form submission.
+  </ResponseField>
+
+  <ResponseField name="reset" type="() => void">
+    Function to reset the form to its initial state.
+  </ResponseField>
+
+  <ResponseField name="state" type="FormState<TFormData>">
+    Current state of the form including values, errors, and validation status.
+  </ResponseField>
+</ResponseField>
+
+## Usage Example
+
+```vue
+<script setup lang="ts">
+import { useForm } from '@tanstack/vue-form'
+
+interface FormData {
+  firstName: string
+  lastName: string
+}
+
+const form = useForm<FormData>({
+  defaultValues: {
+    firstName: '',
+    lastName: '',
+  },
+  onSubmit: async ({ value }) => {
+    // Submit form data
+    console.log('Form submitted:', value)
+  },
+})
+</script>
+
+<template>
+  <form
+    @submit="
+      (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        form.handleSubmit()
+      }
+    "
+  >
+    <form.Field
+      name="firstName"
+      :validators="{
+        onChange: ({ value }) =>
+          !value
+            ? 'A first name is required'
+            : value.length < 3
+              ? 'First name must be at least 3 characters'
+              : undefined,
+      }"
+    >
+      <template v-slot="{ field, state }">
+        <label :htmlFor="field.name">First Name:</label>
+        <input
+          :id="field.name"
+          :name="field.name"
+          :value="field.state.value"
+          @input="
+            (e) => field.handleChange((e.target as HTMLInputElement).value)
+          "
+          @blur="field.handleBlur"
+        />
+        <div v-if="state.meta.errors.length" style="color: red">
+          {{ state.meta.errors[0] }}
+        </div>
+      </template>
+    </form.Field>
+
+    <form.Subscribe>
+      <template v-slot="{ canSubmit, isSubmitting }">
+        <button type="submit" :disabled="!canSubmit">
+          {{ isSubmitting ? '...' : 'Submit' }}
+        </button>
+      </template>
+    </form.Subscribe>
+  </form>
+</template>
+```
+
+## See Also
+
+- [useField](/api/vue/use-field) - Create and manage individual form fields
+- [Field Component](/api/vue/field-component) - Render form fields declaratively
+- [FormApi](/api/core/form-api) - Core form API documentation

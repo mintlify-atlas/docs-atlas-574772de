@@ -1,0 +1,278 @@
+---
+title: Field Component
+description: API reference for the Field component in Solid
+---
+
+The `Field` component provides a declarative way to render form fields in Solid applications.
+
+## Import
+
+```typescript
+import { Field } from '@tanstack/solid-form'
+// or access via form API
+const form = createForm(...)
+// <form.Field ... />
+```
+
+## Props
+
+<ParamField path="form" type="FormApi<TParentData>" required>
+  The parent form API instance.
+</ParamField>
+
+<ParamField path="name" type="TName" required>
+  The field name as a path string (e.g., 'user.firstName' or 'items[0].name').
+</ParamField>
+
+<ParamField path="defaultValue" type="TData">
+  The default value for the field.
+</ParamField>
+
+<ParamField path="validators" type="FieldValidators<TParentData, TName, TData>">
+  Validation functions for the field.
+
+  <ParamField path="validators.onChange" type="FieldValidateOrFn<TParentData, TName, TData>">
+    Validator that runs on every change.
+  </ParamField>
+
+  <ParamField path="validators.onChangeAsync" type="FieldAsyncValidateOrFn<TParentData, TName, TData>">
+    Async validator that runs on change.
+  </ParamField>
+
+  <ParamField path="validators.onChangeAsyncDebounceMs" type="number">
+    Debounce time in milliseconds for async validation.
+  </ParamField>
+
+  <ParamField path="validators.onBlur" type="FieldValidateOrFn<TParentData, TName, TData>">
+    Validator that runs when the field loses focus.
+  </ParamField>
+
+  <ParamField path="validators.onMount" type="FieldValidateOrFn<TParentData, TName, TData>">
+    Validator that runs when the field is mounted.
+  </ParamField>
+</ParamField>
+
+<ParamField path="asyncDebounceMs" type="number">
+  Debounce time in milliseconds for async validation. Default is 500ms.
+</ParamField>
+
+<ParamField path="asyncAlways" type="boolean">
+  If true, async validation runs even if sync validation fails.
+</ParamField>
+
+<ParamField path="children" type="(field: Accessor<FieldApi<...>>) => JSXElement" required>
+  A render prop function that receives the field API accessor.
+</ParamField>
+
+## Children Function Parameters
+
+<ResponseField name="field" type="Accessor<FieldApi<TParentData, TName, TData>>">
+  An accessor function that returns the field API instance.
+
+  <ResponseField name="field().name" type="TName">
+    The field name.
+  </ResponseField>
+
+  <ResponseField name="field().state" type="FieldState<TData>">
+    The current field state.
+
+    <ResponseField name="field().state.value" type="TData">
+      The current field value.
+    </ResponseField>
+
+    <ResponseField name="field().state.meta" type="FieldMeta">
+      Field metadata including errors, touched status, etc.
+    </ResponseField>
+  </ResponseField>
+
+  <ResponseField name="field().handleChange" type="(value: TData) => void">
+    Update the field value.
+  </ResponseField>
+
+  <ResponseField name="field().handleBlur" type="() => void">
+    Mark the field as touched.
+  </ResponseField>
+
+  <ResponseField name="field().pushValue" type="(value: TData extends Array<infer U> ? U : never) => void">
+    Add a value to an array field.
+  </ResponseField>
+
+  <ResponseField name="field().removeValue" type="(index: number) => void">
+    Remove a value from an array field.
+  </ResponseField>
+</ResponseField>
+
+## Usage Example
+
+### Basic Field
+
+```tsx
+import { createForm } from '@tanstack/solid-form'
+import { Show } from 'solid-js'
+
+function App() {
+  const form = createForm(() => ({
+    defaultValues: {
+      firstName: '',
+    },
+    onSubmit: ({ value }) => {
+      console.log(value)
+    },
+  }))
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        form.handleSubmit()
+      }}
+    >
+      <form.Field name="firstName">
+        {(field) => (
+          <div>
+            <label for={field().name}>First Name:</label>
+            <input
+              id={field().name}
+              name={field().name}
+              value={field().state.value}
+              onInput={(e) => field().handleChange(e.currentTarget.value)}
+              onBlur={() => field().handleBlur()}
+            />
+          </div>
+        )}
+      </form.Field>
+      <button type="submit">Submit</button>
+    </form>
+  )
+}
+```
+
+### Field with Validation
+
+```tsx
+import { createForm } from '@tanstack/solid-form'
+import { Show } from 'solid-js'
+
+function App() {
+  const form = createForm(() => ({
+    defaultValues: {
+      email: '',
+    },
+    onSubmit: ({ value }) => {
+      console.log(value)
+    },
+  }))
+
+  return (
+    <form.Field
+      name="email"
+      validators={{
+        onChange: ({ value }) => {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+          return !emailRegex.test(value) ? 'Invalid email address' : undefined
+        },
+        onChangeAsync: async ({ value }) => {
+          await new Promise((resolve) => setTimeout(resolve, 1000))
+          return value.includes('test') ? 'Test emails not allowed' : undefined
+        },
+        onChangeAsyncDebounceMs: 500,
+      }}
+    >
+      {(field) => (
+        <div>
+          <label for={field().name}>Email:</label>
+          <input
+            id={field().name}
+            value={field().state.value}
+            onInput={(e) => field().handleChange(e.currentTarget.value)}
+            onBlur={() => field().handleBlur()}
+          />
+          <Show when={field().state.meta.isTouched && field().state.meta.errors.length > 0}>
+            <div style={{ color: 'red' }}>{field().state.meta.errors[0]}</div>
+          </Show>
+          <Show when={field().state.meta.isValidating}>
+            <div>Validating...</div>
+          </Show>
+        </div>
+      )}
+    </form.Field>
+  )
+}
+```
+
+### Array Field
+
+```tsx
+import { createForm } from '@tanstack/solid-form'
+import { Index, Show } from 'solid-js'
+
+function App() {
+  const form = createForm(() => ({
+    defaultValues: {
+      people: [] as Array<{ name: string; age: number }>,
+    },
+    onSubmit: ({ value }) => {
+      alert(JSON.stringify(value))
+    },
+  }))
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        form.handleSubmit()
+      }}
+    >
+      <form.Field name="people">
+        {(field) => (
+          <div>
+            <Show when={field().state.value.length > 0}>
+              <Index each={field().state.value}>
+                {(_, i) => (
+                  <div>
+                    <form.Field name={`people[${i}].name`}>
+                      {(subField) => (
+                        <div>
+                          <label>
+                            <div>Name for person {i}</div>
+                            <input
+                              value={subField().state.value}
+                              onInput={(e) => {
+                                subField().handleChange(e.currentTarget.value)
+                              }}
+                            />
+                          </label>
+                        </div>
+                      )}
+                    </form.Field>
+                    <button
+                      onClick={() => field().removeValue(i)}
+                      type="button"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+              </Index>
+            </Show>
+
+            <button
+              onClick={() => field().pushValue({ name: '', age: 0 })}
+              type="button"
+            >
+              Add person
+            </button>
+          </div>
+        )}
+      </form.Field>
+      <button type="submit">Submit</button>
+    </form>
+  )
+}
+```
+
+## See Also
+
+- [createForm](/api/solid/create-form) - Create and manage forms
+- [createField](/api/solid/create-field) - Create and manage individual fields
+- [FieldApi](/api/core/field-api) - Core field API documentation

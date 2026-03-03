@@ -1,0 +1,308 @@
+---
+title: Linking Fields Together
+description: Learn how to link form fields so that one field's validation runs when another field changes
+---
+
+You may need to link two fields together so that one is validated when another's value changes. A common use case is when you have both a `password` and a `confirm_password` field - the `confirm_password` field should error if its value doesn't match the `password` field, regardless of which field triggered the value change.
+
+## The Problem
+
+Consider this user flow:
+
+1. User updates the `confirm_password` field to "password123"
+2. User updates the `password` field to "password456"
+
+In this scenario, the form will still have errors because the `confirm_password` field's validation hasn't re-run to check against the new `password` value.
+
+## The Solution: onChangeListenTo
+
+To solve this, you need to ensure that the `confirm_password` field's validation re-runs when the `password` field is updated. Use the `onChangeListenTo` prop:
+
+```tsx
+function App() {
+  const form = useForm({
+    defaultValues: {
+      password: '',
+      confirm_password: '',
+    },
+  })
+
+  return (
+    <div>
+      <form.Field name="password">
+        {(field) => (
+          <label>
+            <div>Password</div>
+            <input
+              type="password"
+              value={field.state.value}
+              onChange={(e) => field.handleChange(e.target.value)}
+            />
+          </label>
+        )}
+      </form.Field>
+      
+      <form.Field
+        name="confirm_password"
+        validators={{
+          onChangeListenTo: ['password'],
+          onChange: ({ value, fieldApi }) => {
+            if (value !== fieldApi.form.getFieldValue('password')) {
+              return 'Passwords do not match'
+            }
+            return undefined
+          },
+        }}
+      >
+        {(field) => (
+          <div>
+            <label>
+              <div>Confirm Password</div>
+              <input
+                type="password"
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+              />
+            </label>
+            {field.state.meta.errors.map((err) => (
+              <div key={err} style={{ color: 'red' }}>
+                {err}
+              </div>
+            ))}
+          </div>
+        )}
+      </form.Field>
+    </div>
+  )
+}
+```
+
+<Tip>
+  The `onChangeListenTo` array accepts multiple field names, so you can link a field to multiple other fields if needed.
+</Tip>
+
+## How It Works
+
+When you specify `onChangeListenTo: ['password']` on the `confirm_password` field:
+
+1. The `onChange` validator runs when the `confirm_password` field itself changes
+2. The `onChange` validator also runs whenever the `password` field changes
+3. This ensures the two fields stay in sync from a validation perspective
+
+## onBlurListenTo
+
+Similarly, you can use `onBlurListenTo` to re-run validation when the linked field is blurred:
+
+```tsx
+<form.Field
+  name="confirm_password"
+  validators={{
+    onBlurListenTo: ['password'],
+    onBlur: ({ value, fieldApi }) => {
+      if (value !== fieldApi.form.getFieldValue('password')) {
+        return 'Passwords do not match'
+      }
+      return undefined
+    },
+  }}
+>
+  {/* ... */}
+</form.Field>
+```
+
+## Complete Example
+
+Here's a complete working example with password matching:
+
+```tsx
+import { useForm } from '@tanstack/react-form'
+
+function PasswordForm() {
+  const form = useForm({
+    defaultValues: {
+      password: '',
+      confirm_password: '',
+    },
+    onSubmit: async ({ value }) => {
+      console.log('Passwords match!', value)
+    },
+  })
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        form.handleSubmit()
+      }}
+    >
+      <form.Field
+        name="password"
+        validators={{
+          onChange: ({ value }) => {
+            if (value.length < 8) {
+              return 'Password must be at least 8 characters'
+            }
+            return undefined
+          },
+        }}
+      >
+        {(field) => (
+          <div>
+            <label htmlFor={field.name}>Password</label>
+            <input
+              id={field.name}
+              type="password"
+              value={field.state.value}
+              onChange={(e) => field.handleChange(e.target.value)}
+              onBlur={field.handleBlur}
+            />
+            {field.state.meta.errors && (
+              <p style={{ color: 'red' }}>{field.state.meta.errors[0]}</p>
+            )}
+          </div>
+        )}
+      </form.Field>
+
+      <form.Field
+        name="confirm_password"
+        validators={{
+          onChangeListenTo: ['password'],
+          onChange: ({ value, fieldApi }) => {
+            const password = fieldApi.form.getFieldValue('password')
+            if (value !== password) {
+              return 'Passwords do not match'
+            }
+            return undefined
+          },
+        }}
+      >
+        {(field) => (
+          <div>
+            <label htmlFor={field.name}>Confirm Password</label>
+            <input
+              id={field.name}
+              type="password"
+              value={field.state.value}
+              onChange={(e) => field.handleChange(e.target.value)}
+              onBlur={field.handleBlur}
+            />
+            {field.state.meta.errors && (
+              <p style={{ color: 'red' }}>{field.state.meta.errors[0]}</p>
+            )}
+          </div>
+        )}
+      </form.Field>
+
+      <form.Subscribe
+        selector={(state) => [state.canSubmit, state.isSubmitting]}
+      >
+        {([canSubmit, isSubmitting]) => (
+          <button type="submit" disabled={!canSubmit}>
+            {isSubmitting ? '...' : 'Submit'}
+          </button>
+        )}
+      </form.Subscribe>
+    </form>
+  )
+}
+```
+
+## Other Use Cases
+
+Linked fields are useful for many scenarios:
+
+### Date Range Validation
+
+```tsx
+<form.Field
+  name="endDate"
+  validators={{
+    onChangeListenTo: ['startDate'],
+    onChange: ({ value, fieldApi }) => {
+      const startDate = fieldApi.form.getFieldValue('startDate')
+      if (value < startDate) {
+        return 'End date must be after start date'
+      }
+      return undefined
+    },
+  }}
+>
+  {/* ... */}
+</form.Field>
+```
+
+### Conditional Required Fields
+
+```tsx
+<form.Field
+  name="otherDetails"
+  validators={{
+    onChangeListenTo: ['category'],
+    onChange: ({ value, fieldApi }) => {
+      const category = fieldApi.form.getFieldValue('category')
+      if (category === 'other' && !value) {
+        return 'Please provide details'
+      }
+      return undefined
+    },
+  }}
+>
+  {/* ... */}
+</form.Field>
+```
+
+### Dependent Numeric Fields
+
+```tsx
+<form.Field
+  name="quantity"
+  validators={{
+    onChangeListenTo: ['available'],
+    onChange: ({ value, fieldApi }) => {
+      const available = fieldApi.form.getFieldValue('available')
+      if (value > available) {
+        return `Only ${available} items available`
+      }
+      return undefined
+    },
+  }}
+>
+  {/* ... */}
+</form.Field>
+```
+
+<Warning>
+  Be careful not to create circular dependencies where Field A listens to Field B and Field B listens to Field A. This can cause infinite validation loops.
+</Warning>
+
+## Listening to Multiple Fields
+
+You can listen to multiple fields at once:
+
+```tsx
+<form.Field
+  name="total"
+  validators={{
+    onChangeListenTo: ['price', 'quantity', 'discount'],
+    onChange: ({ value, fieldApi }) => {
+      const price = fieldApi.form.getFieldValue('price')
+      const quantity = fieldApi.form.getFieldValue('quantity')
+      const discount = fieldApi.form.getFieldValue('discount')
+      
+      const expectedTotal = (price * quantity) - discount
+      
+      if (Math.abs(value - expectedTotal) > 0.01) {
+        return `Total should be ${expectedTotal.toFixed(2)}`
+      }
+      return undefined
+    },
+  }}
+>
+  {/* ... */}
+</form.Field>
+```
+
+<Tip>
+  Use `fieldApi.form.getFieldValue(name)` to access the value of any field in the form during validation.
+</Tip>

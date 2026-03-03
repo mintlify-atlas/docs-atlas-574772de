@@ -1,0 +1,201 @@
+---
+title: Field Component
+description: API reference for the Field component in Vue
+---
+
+The `Field` component provides a declarative way to render form fields in Vue applications.
+
+## Import
+
+```typescript
+import { Field } from '@tanstack/vue-form'
+// or access via form API
+const form = useForm(...)
+// <form.Field ... />
+```
+
+## Props
+
+<ParamField path="form" type="FormApi<TParentData>" required>
+  The parent form API instance.
+</ParamField>
+
+<ParamField path="name" type="TName" required>
+  The field name as a path string (e.g., 'user.firstName' or 'items[0].name').
+</ParamField>
+
+<ParamField path="defaultValue" type="TData">
+  The default value for the field.
+</ParamField>
+
+<ParamField path="validators" type="FieldValidators<TParentData, TName, TData>">
+  Validation functions for the field.
+
+  <ParamField path="validators.onChange" type="FieldValidateOrFn<TParentData, TName, TData>">
+    Validator that runs on every change.
+  </ParamField>
+
+  <ParamField path="validators.onChangeAsync" type="FieldAsyncValidateOrFn<TParentData, TName, TData>">
+    Async validator that runs on change.
+  </ParamField>
+
+  <ParamField path="validators.onChangeAsyncDebounceMs" type="number">
+    Debounce time in milliseconds for async validation.
+  </ParamField>
+
+  <ParamField path="validators.onBlur" type="FieldValidateOrFn<TParentData, TName, TData>">
+    Validator that runs when the field loses focus.
+  </ParamField>
+
+  <ParamField path="validators.onMount" type="FieldValidateOrFn<TParentData, TName, TData>">
+    Validator that runs when the field is mounted.
+  </ParamField>
+</ParamField>
+
+<ParamField path="asyncDebounceMs" type="number">
+  Debounce time in milliseconds for async validation. Default is 500ms.
+</ParamField>
+
+<ParamField path="asyncAlways" type="boolean">
+  If true, async validation runs even if sync validation fails.
+</ParamField>
+
+## Slot Props
+
+The default slot receives an object with the following properties:
+
+<ResponseField name="field" type="FieldApi<TParentData, TName, TData>">
+  The field API instance.
+
+  <ResponseField name="field.name" type="TName">
+    The field name.
+  </ResponseField>
+
+  <ResponseField name="field.state" type="FieldState<TData>">
+    The current field state.
+  </ResponseField>
+
+  <ResponseField name="field.handleChange" type="(value: TData) => void">
+    Update the field value.
+  </ResponseField>
+
+  <ResponseField name="field.handleBlur" type="() => void">
+    Mark the field as touched.
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="state" type="FieldState<TData>">
+  The current field state (same as field.state).
+
+  <ResponseField name="state.value" type="TData">
+    The current field value.
+  </ResponseField>
+
+  <ResponseField name="state.meta" type="FieldMeta">
+    Field metadata including errors, touched status, etc.
+  </ResponseField>
+</ResponseField>
+
+## Usage Example
+
+### Basic Field
+
+```vue
+<script setup lang="ts">
+import { useForm } from '@tanstack/vue-form'
+
+const form = useForm({
+  defaultValues: {
+    firstName: '',
+  },
+  onSubmit: async ({ value }) => {
+    console.log(value)
+  },
+})
+</script>
+
+<template>
+  <form.Field name="firstName">
+    <template v-slot="{ field, state }">
+      <label :htmlFor="field.name">First Name:</label>
+      <input
+        :id="field.name"
+        :name="field.name"
+        :value="field.state.value"
+        @input="(e) => field.handleChange((e.target as HTMLInputElement).value)"
+        @blur="field.handleBlur"
+      />
+    </template>
+  </form.Field>
+</template>
+```
+
+### Field with Validation
+
+```vue
+<template>
+  <form.Field
+    name="email"
+    :validators="{
+      onChange: ({ value }) => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        return !emailRegex.test(value) ? 'Invalid email address' : undefined
+      },
+      onChangeAsync: async ({ value }) => {
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+        return value.includes('test') ? 'Test emails not allowed' : undefined
+      },
+      onChangeAsyncDebounceMs: 500,
+    }"
+  >
+    <template v-slot="{ field, state }">
+      <label :htmlFor="field.name">Email:</label>
+      <input
+        :id="field.name"
+        :value="field.state.value"
+        @input="(e) => field.handleChange((e.target as HTMLInputElement).value)"
+        @blur="field.handleBlur"
+      />
+      <div v-if="state.meta.isTouched && state.meta.errors.length">
+        <span style="color: red">{{ state.meta.errors[0] }}</span>
+      </div>
+      <div v-if="state.meta.isValidating">
+        <span>Validating...</span>
+      </div>
+    </template>
+  </form.Field>
+</template>
+```
+
+### Array Field
+
+```vue
+<template>
+  <form.Field name="items" mode="array">
+    <template v-slot="{ field }">
+      <div v-for="(item, index) in field.state.value" :key="index">
+        <form.Field :name="`items[${index}].name`">
+          <template v-slot="{ field: subField }">
+            <input
+              :value="subField.state.value"
+              @input="(e) => subField.handleChange((e.target as HTMLInputElement).value)"
+            />
+          </template>
+        </form.Field>
+        <button @click="() => field.removeValue(index)" type="button">
+          Remove
+        </button>
+      </div>
+      <button @click="() => field.pushValue({ name: '' })" type="button">
+        Add Item
+      </button>
+    </template>
+  </form.Field>
+</template>
+```
+
+## See Also
+
+- [useForm](/api/vue/use-form) - Create and manage forms
+- [useField](/api/vue/use-field) - Create and manage individual fields
+- [FieldApi](/api/core/field-api) - Core field API documentation

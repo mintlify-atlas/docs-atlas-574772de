@@ -1,0 +1,196 @@
+---
+title: React Quick Start
+description: Get started with TanStack Form in React applications
+---
+
+TanStack Form is unlike most form libraries you've used before. It's designed for large-scale production usage, with a focus on type safety, performance and composition for an unmatched developer experience.
+
+As a result, we've developed a philosophy around the library's usage that values scalability and long-term developer experience over short and sharable code snippets.
+
+## Installation
+
+<Steps>
+  <Step title="Install the package">
+    Install `@tanstack/react-form` using your package manager:
+    
+    ```bash
+    npm install @tanstack/react-form
+    ```
+  </Step>
+  
+  <Step title="Create your first form">
+    Here's a basic example of a form using `useForm` and `form.Field`:
+    
+    ```tsx
+    import { useForm } from '@tanstack/react-form'
+    
+    function App() {
+      const form = useForm({
+        defaultValues: {
+          firstName: '',
+          lastName: '',
+        },
+        onSubmit: async ({ value }) => {
+          // Do something with form data
+          console.log(value)
+        },
+      })
+      
+      return (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            form.handleSubmit()
+          }}
+        >
+          <form.Field
+            name="firstName"
+            validators={{
+              onChange: ({ value }) =>
+                !value
+                  ? 'A first name is required'
+                  : value.length < 3
+                    ? 'First name must be at least 3 characters'
+                    : undefined,
+            }}
+            children={(field) => (
+              <>
+                <label htmlFor={field.name}>First Name:</label>
+                <input
+                  id={field.name}
+                  name={field.name}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                />
+                {field.state.meta.isTouched && !field.state.meta.isValid ? (
+                  <em>{field.state.meta.errors.join(',')}</em>
+                ) : null}
+              </>
+            )}
+          />
+          
+          <form.Subscribe
+            selector={(state) => [state.canSubmit, state.isSubmitting]}
+            children={([canSubmit, isSubmitting]) => (
+              <button type="submit" disabled={!canSubmit}>
+                {isSubmitting ? '...' : 'Submit'}
+              </button>
+            )}
+          />
+        </form>
+      )
+    }
+    ```
+  </Step>
+  
+  <Step title="Add validation">
+    You can add synchronous and asynchronous validation to your fields:
+    
+    ```tsx
+    <form.Field
+      name="firstName"
+      validators={{
+        onChange: ({ value }) =>
+          !value
+            ? 'A first name is required'
+            : value.length < 3
+              ? 'First name must be at least 3 characters'
+              : undefined,
+        onChangeAsyncDebounceMs: 500,
+        onChangeAsync: async ({ value }) => {
+          await new Promise((resolve) => setTimeout(resolve, 1000))
+          return (
+            value.includes('error') && 'No "error" allowed in first name'
+          )
+        },
+      }}
+      children={(field) => (
+        <>
+          <label htmlFor={field.name}>First Name:</label>
+          <input
+            id={field.name}
+            name={field.name}
+            value={field.state.value}
+            onBlur={field.handleBlur}
+            onChange={(e) => field.handleChange(e.target.value)}
+          />
+          {field.state.meta.isTouched && !field.state.meta.isValid ? (
+            <em>{field.state.meta.errors.join(',')}</em>
+          ) : null}
+        </>
+      )}
+    />
+    ```
+  </Step>
+</Steps>
+
+## Advanced Usage with Form Composition
+
+For production applications, we recommend using `createFormHook` to reduce boilerplate and improve type safety:
+
+```tsx
+import { createFormHook, createFormHookContexts } from '@tanstack/react-form'
+import { z } from 'zod'
+
+const { fieldContext, formContext } = createFormHookContexts()
+
+const { useAppForm } = createFormHook({
+  fieldComponents: {
+    TextField,
+    NumberField,
+  },
+  formComponents: {
+    SubmitButton,
+  },
+  fieldContext,
+  formContext,
+})
+
+function App() {
+  const form = useAppForm({
+    defaultValues: {
+      username: '',
+      age: 0,
+    },
+    validators: {
+      onChange: z.object({
+        username: z.string(),
+        age: z.number().min(13),
+      }),
+    },
+    onSubmit: ({ value }) => {
+      alert(JSON.stringify(value, null, 2))
+    },
+  })
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        form.handleSubmit()
+      }}
+    >
+      <h1>Personal Information</h1>
+      <form.AppField
+        name="username"
+        children={(field) => <field.TextField label="Full Name" />}
+      />
+      <form.AppField
+        name="age"
+        children={(field) => <field.NumberField label="Age" />}
+      />
+      <form.AppForm>
+        <form.SubmitButton />
+      </form.AppForm>
+    </form>
+  )
+}
+```
+
+## Next Steps
+
+- Learn about [Basic Concepts](/react/basic-concepts) to understand form state and field management
+- Explore [Validation](/react/validation) options for comprehensive form validation
+- Check out [Form Composition](/react/form-composition) for building scalable forms

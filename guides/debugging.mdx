@@ -1,0 +1,406 @@
+---
+title: Debugging and DevTools
+description: Learn how to debug TanStack Form applications using DevTools and troubleshoot common errors
+---
+
+Debugging forms can be challenging. TanStack Form provides powerful DevTools and clear error messages to help you identify and fix issues quickly.
+
+## TanStack Form DevTools
+
+The TanStack Form DevTools provide a visual interface to inspect your form state, field values, validation errors, and more.
+
+### Installation
+
+Install the DevTools packages:
+
+```bash
+npm install @tanstack/react-devtools @tanstack/react-form-devtools
+```
+
+### Setup
+
+Add the DevTools to your application:
+
+```tsx
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import { TanStackDevtools } from '@tanstack/react-devtools'
+import { formDevtoolsPlugin } from '@tanstack/react-form-devtools'
+import App from './App'
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+    
+    <TanStackDevtools
+      plugins={[formDevtoolsPlugin()]}
+      config={{ hideUntilHover: true }}
+    />
+  </StrictMode>
+)
+```
+
+### Configuration Options
+
+Customize the DevTools behavior:
+
+```tsx
+<TanStackDevtools
+  plugins={[formDevtoolsPlugin()]}
+  config={{
+    hideUntilHover: true,        // Hide until you hover over the toggle
+    position: 'bottom-right',     // Position on screen
+    initialIsOpen: false,         // Start collapsed
+  }}
+  eventBusConfig={{ debug: true }} // Enable debug logging
+/>
+```
+
+### Features
+
+- **Form State Inspection**: View all form state including values, errors, and metadata
+- **Field State**: Inspect individual field states and validation results
+- **Time Travel**: See state changes over time
+- **Submission History**: Track form submission attempts
+- **Validation Timeline**: See when and why validations run
+
+<Tip>
+  Use `hideUntilHover: true` in production-like environments to keep the DevTools available but out of the way.
+</Tip>
+
+### Multiple Forms
+
+The DevTools automatically detect and display all forms in your application:
+
+```tsx
+function App() {
+  const form1 = useForm({
+    defaultValues: { firstName: '', lastName: '' },
+    onSubmit: async ({ value }) => console.log(value),
+  })
+
+  const form2 = useForm({
+    defaultValues: { age: 0 },
+    validators: {
+      onChange({ value }) {
+        if (value.age < 15) return 'needs to be above 15'
+        return undefined
+      },
+    },
+    onSubmit: async ({ value }) => {
+      if (value.age < 20) throw 'needs to be above 20'
+    },
+  })
+
+  // Both forms will appear in DevTools
+  return (
+    <div>
+      <h2>Form 1</h2>
+      {/* Form 1 implementation */}
+      
+      <h2>Form 2</h2>
+      {/* Form 2 implementation */}
+    </div>
+  )
+}
+```
+
+## Common Errors and Solutions
+
+### Changing an Uncontrolled Input to be Controlled
+
+If you see this React warning:
+
+```
+Warning: A component is changing an uncontrolled input to be controlled. 
+This is likely caused by the value changing from undefined to a defined value, 
+which should not happen.
+```
+
+**Cause**: You forgot to set `defaultValues` in your `useForm` hook or `form.Field` component.
+
+**Solution**: Always provide default values for all fields:
+
+```tsx
+// Bad - missing defaultValues
+const form = useForm({
+  onSubmit: async ({ value }) => {
+    console.log(value)
+  },
+})
+
+// Good - with defaultValues
+const form = useForm({
+  defaultValues: {
+    firstName: '',
+    lastName: '',
+    age: 0,
+  },
+  onSubmit: async ({ value }) => {
+    console.log(value)
+  },
+})
+```
+
+<Warning>
+  This error occurs because the input starts as `undefined` and changes to an empty string when you type. React treats this as switching from uncontrolled to controlled.
+</Warning>
+
+### Field Value is of Type `unknown`
+
+If `field.state.value` has type `unknown` in TypeScript:
+
+**Cause**: Your form's type was too large for TypeScript to safely evaluate.
+
+**Solution 1**: Break down your form into smaller forms:
+
+```tsx
+// Instead of one large form with 50+ fields
+const form = useForm({
+  defaultValues: {
+    // 50+ fields here...
+  },
+})
+
+// Split into multiple smaller forms
+const personalInfoForm = useForm({
+  defaultValues: {
+    firstName: '',
+    lastName: '',
+    email: '',
+  },
+})
+
+const addressForm = useForm({
+  defaultValues: {
+    street: '',
+    city: '',
+    zipCode: '',
+  },
+})
+```
+
+**Solution 2**: Use type assertions as a workaround:
+
+```tsx
+<form.Field name="firstName">
+  {(field) => {
+    const value = field.state.value as string
+    return <input value={value} />
+  }}
+</form.Field>
+```
+
+### Type Instantiation is Excessively Deep
+
+If you see this TypeScript error:
+
+```
+Type instantiation is excessively deep and possibly infinite
+```
+
+**Cause**: You've encountered an edge case in TanStack Form's type definitions.
+
+**Solution**: 
+1. This is a TypeScript compile-time error only - your code will still run
+2. Try simplifying your form structure
+3. [Report the issue on GitHub](https://github.com/TanStack/form/issues) with a minimal reproduction
+
+<Tip>
+  Include a minimal reproduction when reporting TypeScript errors. This helps maintainers fix the issue faster.
+</Tip>
+
+## Debugging Validation
+
+### Validation Not Running
+
+If validation doesn't seem to run:
+
+1. **Check validation trigger**: Ensure you're triggering validation correctly:
+
+```tsx
+<form.Field
+  name="email"
+  validators={{
+    onChange: ({ value }) => /* ... */, // Runs on every change
+    onBlur: ({ value }) => /* ... */,   // Runs on blur
+    onSubmit: ({ value }) => /* ... */, // Runs on submit
+  }}
+/>
+```
+
+2. **Dynamic validation**: If using `onDynamic`, ensure you've added `validationLogic`:
+
+```tsx
+const form = useForm({
+  validationLogic: revalidateLogic(), // Required for onDynamic
+  validators: {
+    onDynamic: ({ value }) => /* ... */,
+  },
+})
+```
+
+3. **Check handlers**: Ensure you're calling field handlers:
+
+```tsx
+<form.Field name="email">
+  {(field) => (
+    <input
+      value={field.state.value}
+      onChange={(e) => field.handleChange(e.target.value)} // Must call this!
+      onBlur={field.handleBlur} // And this!
+    />
+  )}
+</form.Field>
+```
+
+### Inspecting Validation State
+
+Use DevTools or subscribe to validation state:
+
+```tsx
+<form.Field name="email">
+  {(field) => (
+    <div>
+      <input
+        value={field.state.value}
+        onChange={(e) => field.handleChange(e.target.value)}
+      />
+      
+      {/* Debug info */}
+      <pre>
+        {JSON.stringify({
+          value: field.state.value,
+          errors: field.state.meta.errors,
+          isValidating: field.state.meta.isValidating,
+          isTouched: field.state.meta.isTouched,
+          isValid: field.state.meta.isValid,
+        }, null, 2)}
+      </pre>
+    </div>
+  )}
+</form.Field>
+```
+
+## Debugging Submissions
+
+### Form Not Submitting
+
+Check these common issues:
+
+1. **Validation errors**: Form won't submit if there are validation errors:
+
+```tsx
+<form.Subscribe selector={(state) => [state.canSubmit, state.errors]}>
+  {([canSubmit, errors]) => (
+    <div>
+      <button type="submit" disabled={!canSubmit}>
+        Submit
+      </button>
+      {errors.length > 0 && (
+        <div>Errors: {JSON.stringify(errors)}</div>
+      )}
+    </div>
+  )}
+</form.Subscribe>
+```
+
+2. **Form element**: Ensure your form element is properly set up:
+
+```tsx
+// Good
+<form
+  onSubmit={(e) => {
+    e.preventDefault()        // Prevent default browser submission
+    e.stopPropagation()       // Stop event bubbling
+    form.handleSubmit()       // Call form submission
+  }}
+>
+```
+
+3. **Button type**: Make sure your submit button has `type="submit"`:
+
+```tsx
+<button type="submit">Submit</button> // Good
+<button onClick={() => form.handleSubmit()}>Submit</button> // Also works
+<button>Submit</button> // Bad - defaults to type="button" in React
+```
+
+### Tracking Submission Attempts
+
+```tsx
+<form.Subscribe
+  selector={(state) => [state.submissionAttempts, state.isSubmitting]}
+>
+  {([attempts, isSubmitting]) => (
+    <div>
+      <p>Submission attempts: {attempts}</p>
+      <p>Currently submitting: {isSubmitting ? 'Yes' : 'No'}</p>
+    </div>
+  )}
+</form.Subscribe>
+```
+
+## Console Logging
+
+Add strategic logging to debug form behavior:
+
+```tsx
+const form = useForm({
+  defaultValues: { email: '' },
+  validators: {
+    onChange: ({ value }) => {
+      console.log('Form validation running:', value)
+      return undefined
+    },
+  },
+  onSubmit: async ({ value, formApi }) => {
+    console.log('Form submitted:', value)
+    console.log('Form state:', formApi.state)
+  },
+})
+
+// Field-level logging
+<form.Field
+  name="email"
+  validators={{
+    onChange: ({ value }) => {
+      console.log('Email validation:', value)
+      return value.includes('@') ? undefined : 'Invalid email'
+    },
+  }}
+>
+  {(field) => {
+    console.log('Email field render:', field.state)
+    return <input /* ... */ />
+  }}
+</form.Field>
+```
+
+<Warning>
+  Remove console.log statements before deploying to production to avoid performance issues and exposing sensitive data.
+</Warning>
+
+## Best Practices
+
+1. **Use DevTools**: Install and use the DevTools during development
+2. **Type safety**: Let TypeScript catch errors at compile time
+3. **Default values**: Always provide default values for all fields
+4. **Error boundaries**: Wrap forms in error boundaries to catch runtime errors
+5. **Test thoroughly**: Test validation, submission, and error handling paths
+
+```tsx
+import { ErrorBoundary } from 'react-error-boundary'
+
+function App() {
+  return (
+    <ErrorBoundary fallback={<div>Something went wrong</div>}>
+      <YourFormComponent />
+    </ErrorBoundary>
+  )
+}
+```
+
+<Tip>
+  Combine TanStack Form DevTools with React DevTools and your browser's DevTools for a complete debugging experience.
+</Tip>

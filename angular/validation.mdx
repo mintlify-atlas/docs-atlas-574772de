@@ -1,0 +1,736 @@
+---
+title: Form Validation
+description: Learn how to validate forms and fields in Angular with TanStack Form
+---
+
+TanStack Form provides flexible validation with support for synchronous and asynchronous validation, field-level and form-level rules, and schema-based validation.
+
+## Validation Timing
+
+Control when validation runs by choosing the appropriate callback:
+
+- `onChange` - Validates on every keystroke
+- `onBlur` - Validates when the field loses focus
+- `onSubmit` - Validates when the form is submitted
+- `onMount` - Validates when the field mounts
+
+Each has an async counterpart: `onChangeAsync`, `onBlurAsync`, etc.
+
+### On Change Validation
+
+Validate on every keystroke:
+
+```typescript
+import { Component } from '@angular/core'
+import { TanStackField, injectForm } from '@tanstack/angular-form'
+import type { FieldValidateFn } from '@tanstack/angular-form'
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [TanStackField],
+  template: `
+    <ng-container
+      [tanstackField]="form"
+      name="age"
+      [validators]="{
+        onChange: ageValidator
+      }"
+      #age="field"
+    >
+      <label [for]="age.api.name">Age:</label>
+      <input
+        [id]="age.api.name"
+        [name]="age.api.name"
+        [value]="age.api.state.value"
+        type="number"
+        (input)="age.api.handleChange($any($event).target.valueAsNumber)"
+      />
+      @if (age.api.state.meta.errors) {
+        <em role="alert">{{ age.api.state.meta.errors.join(', ') }}</em>
+      }
+    </ng-container>
+  `,
+})
+export class AppComponent {
+  ageValidator: FieldValidateFn<any, any, any, any, number> = ({ value }) =>
+    value < 13 ? 'You must be 13 to make an account' : undefined
+
+  form = injectForm({
+    defaultValues: {
+      age: 0,
+    },
+    onSubmit({ value }) {
+      console.log(value)
+    },
+  })
+}
+```
+
+### On Blur Validation
+
+Validate when the field loses focus:
+
+```typescript
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [TanStackField],
+  template: `
+    <ng-container
+      [tanstackField]="form"
+      name="age"
+      [validators]="{
+        onBlur: ageValidator
+      }"
+      #age="field"
+    >
+      <label [for]="age.api.name">Age:</label>
+      <input
+        [id]="age.api.name"
+        [name]="age.api.name"
+        [value]="age.api.state.value"
+        type="number"
+        (blur)="age.api.handleBlur()"
+        (input)="age.api.handleChange($any($event).target.valueAsNumber)"
+      />
+      @if (age.api.state.meta.errors) {
+        <em role="alert">{{ age.api.state.meta.errors.join(', ') }}</em>
+      }
+    </ng-container>
+  `,
+})
+export class AppComponent {
+  ageValidator: FieldValidateFn<any, any, any, any, number> = ({ value }) =>
+    value < 13 ? 'You must be 13 to make an account' : undefined
+
+  // ...
+}
+```
+
+### Multiple Validators
+
+Combine multiple validators at different times:
+
+```typescript
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [TanStackField],
+  template: `
+    <ng-container
+      [tanstackField]="form"
+      name="age"
+      [validators]="{
+        onChange: ageValidator,
+        onBlur: minimumAgeValidator
+      }"
+      #age="field"
+    >
+      <label [for]="age.api.name">Age:</label>
+      <input
+        [id]="age.api.name"
+        [name]="age.api.name"
+        [value]="age.api.state.value"
+        type="number"
+        (blur)="age.api.handleBlur()"
+        (input)="age.api.handleChange($any($event).target.valueAsNumber)"
+      />
+      @if (!age.api.state.meta.isValid) {
+        <em role="alert">{{ age.api.state.meta.errors.join(', ') }}</em>
+      }
+    </ng-container>
+  `,
+})
+export class AppComponent {
+  ageValidator: FieldValidateFn<any, any, any, any, number> = ({ value }) =>
+    value < 13 ? 'You must be 13 to make an account' : undefined
+
+  minimumAgeValidator: FieldValidateFn<any, any, any, any, number> = ({ value }) =>
+    value < 0 ? 'Invalid value' : undefined
+
+  // ...
+}
+```
+
+## Displaying Errors
+
+### Error Array
+
+Display all errors from the `errors` array:
+
+```angular-html
+@if (age.api.state.meta.errors) {
+  <em role="alert">{{ age.api.state.meta.errors.join(', ') }}</em>
+}
+```
+
+### Error Map
+
+Access specific errors by validation timing using `errorMap`:
+
+```angular-html
+@if (age.api.state.meta.errorMap['onChange']) {
+  <em role="alert">{{ age.api.state.meta.errorMap['onChange'] }}</em>
+}
+```
+
+### Typed Errors
+
+Return typed error objects for more control:
+
+```typescript
+ageValidator: FieldValidateFn<any, any, any, any, number> = ({ value }) =>
+  value < 13 ? { isOldEnough: false } : undefined
+```
+
+Then check specific error properties:
+
+```angular-html
+@if (!age.api.state.meta.errorMap['onChange']?.isOldEnough) {
+  <em role="alert">The user is not old enough</em>
+}
+```
+
+## Form-Level Validation
+
+Define validation at the form level instead of per-field:
+
+```typescript
+import { Component } from '@angular/core'
+import { TanStackField, injectForm, injectStore } from '@tanstack/angular-form'
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [TanStackField],
+  template: `
+    <div>
+      <ng-container [tanstackField]="form" name="age" #age="field">
+        <!-- ... -->
+        @if (formErrorMap().onChange) {
+          <div>
+            <em>There was an error on the form: {{ formErrorMap().onChange }}</em>
+          </div>
+        }
+      </ng-container>
+    </div>
+  `,
+})
+export class AppComponent {
+  form = injectForm({
+    defaultValues: {
+      age: 0,
+    },
+    onSubmit({ value }) {
+      console.log(value)
+    },
+    validators: {
+      // Add validators to the form the same way you would add them to a field
+      onChange({ value }) {
+        if (value.age < 13) {
+          return 'Must be 13 or older to sign'
+        }
+        return undefined
+      },
+    },
+  })
+
+  // Subscribe to the form's error map so that updates to it will render
+  formErrorMap = injectStore(this.form, (state) => state.errorMap)
+}
+```
+
+### Setting Field Errors from Form Validators
+
+Set field-level errors from form validators, useful for server-side validation:
+
+```typescript
+import { Component } from '@angular/core'
+import { TanStackField, injectForm } from '@tanstack/angular-form'
+
+@Component({
+  selector: 'app-root',
+  imports: [TanStackField],
+  template: `
+    <form (submit)="handleSubmit($event)">
+      <div>
+        <ng-container
+          [tanstackField]="form"
+          name="age"
+          #ageField="field"
+        >
+          <label [for]="ageField.api.name">Age:</label>
+          <input
+            type="number"
+            [name]="ageField.api.name"
+            [value]="ageField.api.state.value"
+            (blur)="ageField.api.handleBlur()"
+            (input)="ageField.api.handleChange($any($event).target.valueAsNumber)"
+          />
+          @if (ageField.api.state.meta.errors.length > 0) {
+            <em role="alert">{{ ageField.api.state.meta.errors.join(', ') }}</em>
+          }
+        </ng-container>
+      </div>
+      <button type="submit">Submit</button>
+    </form>
+  `,
+})
+export class AppComponent {
+  form = injectForm({
+    defaultValues: {
+      age: 0,
+      socials: [],
+      details: {
+        email: '',
+      },
+    },
+    validators: {
+      onSubmitAsync: async ({ value }) => {
+        // Validate the value on the server
+        const hasErrors = await verifyDataOnServer(value)
+        if (hasErrors) {
+          return {
+            form: 'Invalid data', // The `form` key is optional
+            fields: {
+              age: 'Must be 13 or older to sign',
+              // Set errors on nested fields with the field's name
+              'socials[0].url': 'The provided URL does not exist',
+              'details.email': 'An email is required',
+            },
+          }
+        }
+
+        return null
+      },
+    },
+  })
+
+  handleSubmit(event: SubmitEvent) {
+    event.preventDefault()
+    event.stopPropagation()
+    this.form.handleSubmit()
+  }
+}
+```
+
+<Note>
+Field-level validators override form-level field errors. If both return errors for the same field, only the field-level error is shown.
+</Note>
+
+## Asynchronous Validation
+
+Use async validators for network requests or other async operations:
+
+```typescript
+import { Component } from '@angular/core'
+import { TanStackField, injectForm } from '@tanstack/angular-form'
+import type { FieldValidateAsyncFn } from '@tanstack/angular-form'
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [TanStackField],
+  template: `
+    <ng-container
+      [tanstackField]="form"
+      name="age"
+      [validators]="{ onChangeAsync: ageValidator }"
+      #age="field"
+    >
+      <label [for]="age.api.name">Age:</label>
+      <input
+        [id]="age.api.name"
+        [name]="age.api.name"
+        [value]="age.api.state.value"
+        type="number"
+        (input)="age.api.handleChange($any($event).target.valueAsNumber)"
+      />
+      @if (age.api.state.meta.errors) {
+        <em role="alert">{{ age.api.state.meta.errors.join(', ') }}</em>
+      }
+    </ng-container>
+  `,
+})
+export class AppComponent {
+  ageValidator: FieldValidateAsyncFn<any, string, number> = async ({ value }) => {
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    return value < 13 ? 'You must be 13 to make an account' : undefined
+  }
+
+  form = injectForm({
+    defaultValues: {
+      age: 0,
+    },
+    onSubmit({ value }) {
+      console.log(value)
+    },
+  })
+}
+```
+
+### Combining Sync and Async Validation
+
+Run synchronous validation first, then async validation:
+
+```typescript
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [TanStackField],
+  template: `
+    <ng-container
+      [tanstackField]="form"
+      name="age"
+      [validators]="{ onBlur: ensureAge13, onBlurAsync: ensureOlderAge }"
+      #age="field"
+    >
+      <label [for]="age.api.name">Age:</label>
+      <input
+        [id]="age.api.name"
+        [name]="age.api.name"
+        [value]="age.api.state.value"
+        type="number"
+        (blur)="age.api.handleBlur()"
+        (input)="age.api.handleChange($any($event).target.value)"
+      />
+      @if (age.api.state.meta.errors) {
+        <em role="alert">{{ age.api.state.meta.errors.join(', ') }}</em>
+      }
+    </ng-container>
+  `,
+})
+export class AppComponent {
+  ensureAge13: FieldValidateFn<any, any, any, any, number> = ({ value }) =>
+    value < 13 ? 'You must be at least 13' : undefined
+
+  ensureOlderAge: FieldValidateAsyncFn<any, string, number> = async ({ value }) => {
+    const currentAge = await fetchCurrentAgeOnProfile()
+    return value < currentAge ? 'You can only increase the age' : undefined
+  }
+
+  // ...
+}
+```
+
+By default, async validators only run if sync validators pass. Set `asyncAlways: true` to always run async validators.
+
+### Built-in Debouncing
+
+Debounce async validation to prevent excessive API calls:
+
+```angular-html
+<ng-container
+  [tanstackField]="form"
+  name="age"
+  [asyncDebounceMs]="500"
+  [validators]="{ onChangeAsync: someValidator }"
+  #age="field"
+>
+  <!-- ... -->
+</ng-container>
+```
+
+Or set debounce per-validator:
+
+```angular-html
+<ng-container
+  [tanstackField]="form"
+  name="age"
+  [validators]="{
+    onChangeAsyncDebounceMs: 1500,
+    onChangeAsync: someValidator,
+    onBlurAsync: otherValidator
+  }"
+  #age="field"
+>
+  <!-- ... -->
+</ng-container>
+```
+
+## Schema-Based Validation
+
+Use schema libraries for concise, type-safe validation. TanStack Form supports the [Standard Schema](https://github.com/standard-schema/standard-schema) specification.
+
+### Supported Libraries
+
+- [Zod](https://zod.dev/) (v3.24.0+)
+- [Valibot](https://valibot.dev/) (v1.0.0+)
+- [ArkType](https://arktype.io/) (v2.1.20+)
+- [Yup](https://github.com/jquense/yup) (v1.7.0+)
+
+<Note>
+Use the latest versions of these libraries to ensure Standard Schema support.
+</Note>
+
+### Using Zod
+
+```typescript
+import { Component } from '@angular/core'
+import { TanStackField, injectForm } from '@tanstack/angular-form'
+import { z } from 'zod'
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [TanStackField],
+  template: `
+    <ng-container
+      [tanstackField]="form"
+      name="age"
+      [validators]="{
+        onChange: z.number().gte(13, 'You must be 13 to make an account'),
+      }"
+      #age="field"
+    >
+      <!-- ... -->
+    </ng-container>
+  `,
+})
+export class AppComponent {
+  form = injectForm({
+    defaultValues: {
+      age: 0,
+    },
+    onSubmit({ value }) {
+      console.log(value)
+    },
+  })
+
+  z = z
+}
+```
+
+### Async Schema Validation
+
+```typescript
+import { Component } from '@angular/core'
+import { TanStackField, injectForm } from '@tanstack/angular-form'
+import { z } from 'zod'
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [TanStackField],
+  template: `
+    <ng-container
+      [tanstackField]="form"
+      name="age"
+      [validators]="{
+        onChange: z.number().gte(13, 'You must be 13 to make an account'),
+        onChangeAsyncDebounceMs: 500,
+        onChangeAsync: increaseAge
+      }"
+      #age="field"
+    >
+      <!-- ... -->
+    </ng-container>
+  `,
+})
+export class AppComponent {
+  increaseAge = z.number().refine(
+    async (value) => {
+      const currentAge = await fetchCurrentAgeOnProfile()
+      return value >= currentAge
+    },
+    {
+      message: 'You can only increase the age',
+    },
+  )
+
+  form = injectForm({
+    defaultValues: {
+      age: 0,
+    },
+    onSubmit({ value }) {
+      console.log(value)
+    },
+  })
+
+  z = z
+}
+```
+
+### Combining Schemas with Callbacks
+
+For more control, combine schemas with callback functions:
+
+```typescript
+import { Component } from '@angular/core'
+import { TanStackField, injectForm } from '@tanstack/angular-form'
+import type { FieldValidateAsyncFn } from '@tanstack/angular-form'
+import { z } from 'zod'
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [TanStackField],
+  template: `
+    <ng-container
+      [tanstackField]="form"
+      name="age"
+      [validators]="{ onChangeAsync: ageValidator }"
+      #age="field"
+    >
+      <!-- ... -->
+    </ng-container>
+  `,
+})
+export class AppComponent {
+  ageValidator: FieldValidateAsyncFn<any, string, number> = async ({
+    value,
+    fieldApi,
+  }) => {
+    const errors = fieldApi.parseValueWithSchema(
+      z.number().gte(13, 'You must be 13 to make an account'),
+    )
+    if (errors) return errors
+
+    // Continue with your validation
+  }
+
+  // ...
+}
+```
+
+## Preventing Invalid Submissions
+
+The form's `canSubmit` flag indicates whether the form is valid and can be submitted:
+
+```typescript
+import { Component } from '@angular/core'
+import { TanStackField, injectForm, injectStore } from '@tanstack/angular-form'
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [TanStackField],
+  template: `
+    <button type="submit" [disabled]="!canSubmit()">
+      {{ isSubmitting() ? '...' : 'Submit' }}
+    </button>
+  `,
+})
+export class AppComponent {
+  form = injectForm({
+    defaultValues: {
+      firstName: '',
+    },
+    onSubmit({ value }) {
+      console.log(value)
+    },
+  })
+
+  canSubmit = injectStore(this.form, (state) => state.canSubmit)
+  isSubmitting = injectStore(this.form, (state) => state.isSubmitting)
+}
+```
+
+<Note>
+The `canSubmit` flag is `true` until the form is touched, even if fields are technically invalid. Combine it with `isPristine` to prevent submission before any interaction: `!canSubmit || isPristine`.
+</Note>
+
+## Complete Example
+
+Here's a full validation example with sync and async validators:
+
+```typescript
+import { Component } from '@angular/core'
+import { TanStackField, injectForm, injectStore } from '@tanstack/angular-form'
+import type {
+  FieldValidateAsyncFn,
+  FieldValidateFn,
+} from '@tanstack/angular-form'
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [TanStackField],
+  template: `
+    <form (submit)="handleSubmit($event)">
+      <div>
+        <ng-container
+          [tanstackField]="form"
+          name="firstName"
+          [validators]="{
+            onChange: firstNameValidator,
+            onChangeAsyncDebounceMs: 500,
+            onChangeAsync: firstNameAsyncValidator,
+          }"
+          #firstName="field"
+        >
+          <label [for]="firstName.api.name">First Name:</label>
+          <input
+            [id]="firstName.api.name"
+            [name]="firstName.api.name"
+            [value]="firstName.api.state.value"
+            (blur)="firstName.api.handleBlur()"
+            (input)="firstName.api.handleChange($any($event).target.value)"
+          />
+          @if (firstName.api.state.meta.isTouched) {
+            @for (error of firstName.api.state.meta.errors; track $index) {
+              <div style="color: red">
+                {{ error }}
+              </div>
+            }
+          }
+          @if (firstName.api.state.meta.isValidating) {
+            <p>Validating...</p>
+          }
+        </ng-container>
+      </div>
+      <div>
+        <ng-container [tanstackField]="form" name="lastName" #lastName="field">
+          <label [for]="lastName.api.name">Last Name:</label>
+          <input
+            [id]="lastName.api.name"
+            [name]="lastName.api.name"
+            [value]="lastName.api.state.value"
+            (blur)="lastName.api.handleBlur()"
+            (input)="lastName.api.handleChange($any($event).target.value)"
+          />
+        </ng-container>
+      </div>
+      <button type="submit" [disabled]="!canSubmit()">
+        {{ isSubmitting() ? '...' : 'Submit' }}
+      </button>
+      <button type="reset" (click)="form.reset()">Reset</button>
+    </form>
+  `,
+})
+export class AppComponent {
+  firstNameValidator: FieldValidateFn<any, string, any> = ({ value }) =>
+    !value
+      ? 'A first name is required'
+      : value.length < 3
+        ? 'First name must be at least 3 characters'
+        : undefined
+
+  firstNameAsyncValidator: FieldValidateAsyncFn<any, string, any> = async ({
+    value,
+  }) => {
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    return value.includes('error') && 'No "error" allowed in first name'
+  }
+
+  form = injectForm({
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+    },
+    onSubmit({ value }) {
+      console.log(value)
+    },
+  })
+
+  canSubmit = injectStore(this.form, (state) => state.canSubmit)
+  isSubmitting = injectStore(this.form, (state) => state.isSubmitting)
+
+  handleSubmit(event: SubmitEvent) {
+    event.preventDefault()
+    event.stopPropagation()
+    this.form.handleSubmit()
+  }
+}
+```

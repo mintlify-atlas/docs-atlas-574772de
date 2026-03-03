@@ -1,0 +1,189 @@
+---
+title: useField
+description: API reference for the useField composable in Vue
+---
+
+The `useField` composable creates and manages an individual form field in Vue applications.
+
+## Import
+
+```typescript
+import { useField } from '@tanstack/vue-form'
+```
+
+## Signature
+
+```typescript
+function useField<
+  TParentData,
+  TName extends DeepKeys<TParentData>,
+  TData extends DeepValue<TParentData, TName>,
+  // ... additional type parameters
+>(
+  opts: UseFieldOptions<TParentData, TName, TData, ...>
+): {
+  api: FieldApi<TParentData, TName, TData, ...> & VueFieldApi<...>
+  state: Readonly<Ref<FieldState<TData>>>
+}
+```
+
+## Parameters
+
+<ParamField path="opts" type="UseFieldOptions<TParentData, TName, TData>" required>
+  Configuration object for the field.
+
+  <ParamField path="opts.form" type="FormApi<TParentData>" required>
+    The parent form API instance.
+  </ParamField>
+
+  <ParamField path="opts.name" type="TName" required>
+    The field name as a path string (e.g., 'user.firstName' or 'items[0].name').
+  </ParamField>
+
+  <ParamField path="opts.defaultValue" type="TData">
+    The default value for the field.
+  </ParamField>
+
+  <ParamField path="opts.validators" type="FieldValidators<TParentData, TName, TData>">
+    Validation functions for the field.
+
+    <ParamField path="opts.validators.onChange" type="FieldValidateOrFn<TParentData, TName, TData>">
+      Validator that runs on every change.
+    </ParamField>
+
+    <ParamField path="opts.validators.onChangeAsync" type="FieldAsyncValidateOrFn<TParentData, TName, TData>">
+      Async validator that runs on change.
+    </ParamField>
+
+    <ParamField path="opts.validators.onBlur" type="FieldValidateOrFn<TParentData, TName, TData>">
+      Validator that runs when the field loses focus.
+    </ParamField>
+
+    <ParamField path="opts.validators.onMount" type="FieldValidateOrFn<TParentData, TName, TData>">
+      Validator that runs when the field is mounted.
+    </ParamField>
+  </ParamField>
+
+  <ParamField path="opts.asyncDebounceMs" type="number">
+    Debounce time in milliseconds for async validation. Default is 500ms.
+  </ParamField>
+
+  <ParamField path="opts.asyncAlways" type="boolean">
+    If true, async validation runs even if sync validation fails.
+  </ParamField>
+</ParamField>
+
+## Return Value
+
+<ResponseField name="api" type="FieldApi<TParentData, TName, TData> & VueFieldApi">
+  The field API instance.
+
+  <ResponseField name="name" type="TName">
+    The field name.
+  </ResponseField>
+
+  <ResponseField name="state" type="FieldState<TData>">
+    The current field state including value, errors, and metadata.
+  </ResponseField>
+
+  <ResponseField name="handleChange" type="(value: TData) => void">
+    Update the field value.
+  </ResponseField>
+
+  <ResponseField name="handleBlur" type="() => void">
+    Mark the field as touched.
+  </ResponseField>
+
+  <ResponseField name="pushValue" type="(value: TData extends Array<infer U> ? U : never) => void">
+    Add a value to an array field.
+  </ResponseField>
+
+  <ResponseField name="removeValue" type="(index: number) => void">
+    Remove a value from an array field.
+  </ResponseField>
+
+  <ResponseField name="Field" type="FieldComponent">
+    A nested Field component for creating sub-fields.
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="state" type="Readonly<Ref<FieldState<TData>>>">
+  A reactive reference to the field state.
+
+  <ResponseField name="state.value" type="TData">
+    The current field value.
+  </ResponseField>
+
+  <ResponseField name="state.meta" type="FieldMeta">
+    Field metadata.
+
+    <ResponseField name="state.meta.errors" type="string[]">
+      Current validation errors.
+    </ResponseField>
+
+    <ResponseField name="state.meta.isTouched" type="boolean">
+      Whether the field has been touched.
+    </ResponseField>
+
+    <ResponseField name="state.meta.isDirty" type="boolean">
+      Whether the field value has changed.
+    </ResponseField>
+
+    <ResponseField name="state.meta.isValidating" type="boolean">
+      Whether async validation is in progress.
+    </ResponseField>
+  </ResponseField>
+</ResponseField>
+
+## Usage Example
+
+```vue
+<script setup lang="ts">
+import { useForm } from '@tanstack/vue-form'
+
+interface FormData {
+  email: string
+}
+
+const form = useForm<FormData>({
+  defaultValues: {
+    email: '',
+  },
+  onSubmit: async ({ value }) => {
+    console.log('Email:', value.email)
+  },
+})
+
+const emailField = form.useField({
+  name: 'email',
+  validators: {
+    onChange: ({ value }) => {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      return !emailRegex.test(value) ? 'Invalid email address' : undefined
+    },
+  },
+})
+</script>
+
+<template>
+  <div>
+    <label :htmlFor="emailField.api.name">Email:</label>
+    <input
+      :id="emailField.api.name"
+      :name="emailField.api.name"
+      :value="emailField.api.state.value"
+      @input="(e) => emailField.api.handleChange((e.target as HTMLInputElement).value)"
+      @blur="emailField.api.handleBlur"
+    />
+    <div v-if="emailField.state.value.meta.isTouched && emailField.state.value.meta.errors.length">
+      <span style="color: red">{{ emailField.state.value.meta.errors[0] }}</span>
+    </div>
+  </div>
+</template>
+```
+
+## See Also
+
+- [useForm](/api/vue/use-form) - Create and manage forms
+- [Field Component](/api/vue/field-component) - Render form fields declaratively
+- [FieldApi](/api/core/field-api) - Core field API documentation

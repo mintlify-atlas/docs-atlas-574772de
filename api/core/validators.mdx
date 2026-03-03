@@ -1,0 +1,625 @@
+---
+title: Validators
+description: Validation functions and types for TanStack Form
+---
+
+# Validators
+
+TanStack Form provides a flexible validation system that supports both synchronous and asynchronous validation at the form and field levels.
+
+## Validation Types
+
+### FormValidateFn
+
+A synchronous validation function for form-level validation.
+
+```typescript
+type FormValidateFn<TFormData> = (props: {
+  value: TFormData
+  formApi: FormApi<TFormData>
+}) => unknown
+```
+
+<ParamField path="props.value" type="TFormData" required>
+  The current form values
+</ParamField>
+
+<ParamField path="props.formApi" type="FormApi<TFormData>" required>
+  Reference to the form API instance
+</ParamField>
+
+<ResponseField name="error" type="unknown">
+  Return an error (any truthy value) if validation fails, or `undefined` if valid
+</ResponseField>
+
+#### Example
+
+```typescript
+const formValidator: FormValidateFn<FormData> = ({ value, formApi }) => {
+  if (!value.email || !value.password) {
+    return {
+      form: 'Email and password are required',
+      fields: {
+        email: !value.email ? 'Email is required' : undefined,
+        password: !value.password ? 'Password is required' : undefined,
+      },
+    }
+  }
+  return undefined
+}
+```
+
+### FormValidateAsyncFn
+
+An asynchronous validation function for form-level validation.
+
+```typescript
+type FormValidateAsyncFn<TFormData> = (props: {
+  value: TFormData
+  formApi: FormApi<TFormData>
+  signal: AbortSignal
+}) => unknown | Promise<unknown>
+```
+
+<ParamField path="props.value" type="TFormData" required>
+  The current form values
+</ParamField>
+
+<ParamField path="props.formApi" type="FormApi<TFormData>" required>
+  Reference to the form API instance
+</ParamField>
+
+<ParamField path="props.signal" type="AbortSignal" required>
+  An AbortSignal to cancel the async validation
+</ParamField>
+
+<ResponseField name="error" type="unknown | Promise<unknown>">
+  Return an error (any truthy value) or a promise resolving to an error if validation fails
+</ResponseField>
+
+#### Example
+
+```typescript
+const asyncFormValidator: FormValidateAsyncFn<FormData> = async ({
+  value,
+  formApi,
+  signal,
+}) => {
+  if (!value.email) return undefined
+
+  try {
+    const response = await fetch(
+      `/api/check-user?email=${value.email}`,
+      { signal }
+    )
+    const data = await response.json()
+
+    if (data.exists) {
+      return {
+        fields: {
+          email: 'User with this email already exists',
+        },
+      }
+    }
+  } catch (error) {
+    if (signal.aborted) return undefined
+    throw error
+  }
+
+  return undefined
+}
+```
+
+### FieldValidateFn
+
+A synchronous validation function for field-level validation.
+
+```typescript
+type FieldValidateFn<TParentData, TName, TData> = (props: {
+  value: TData
+  fieldApi: FieldApi<TParentData, TName, TData>
+}) => unknown
+```
+
+<ParamField path="props.value" type="TData" required>
+  The current field value
+</ParamField>
+
+<ParamField path="props.fieldApi" type="FieldApi" required>
+  Reference to the field API instance
+</ParamField>
+
+<ResponseField name="error" type="unknown">
+  Return an error (any truthy value) if validation fails, or `undefined` if valid
+</ResponseField>
+
+#### Example
+
+```typescript
+const emailValidator: FieldValidateFn<FormData, 'email', string> = ({
+  value,
+  fieldApi,
+}) => {
+  if (!value) return 'Email is required'
+  if (!value.includes('@')) return 'Invalid email format'
+  if (value.length > 100) return 'Email is too long'
+  return undefined
+}
+```
+
+### FieldValidateAsyncFn
+
+An asynchronous validation function for field-level validation.
+
+```typescript
+type FieldValidateAsyncFn<TParentData, TName, TData> = (props: {
+  value: TData
+  fieldApi: FieldApi<TParentData, TName, TData>
+  signal: AbortSignal
+}) => unknown | Promise<unknown>
+```
+
+<ParamField path="props.value" type="TData" required>
+  The current field value
+</ParamField>
+
+<ParamField path="props.fieldApi" type="FieldApi" required>
+  Reference to the field API instance
+</ParamField>
+
+<ParamField path="props.signal" type="AbortSignal" required>
+  An AbortSignal to cancel the async validation
+</ParamField>
+
+<ResponseField name="error" type="unknown | Promise<unknown>">
+  Return an error or a promise resolving to an error if validation fails
+</ResponseField>
+
+#### Example
+
+```typescript
+const asyncEmailValidator: FieldValidateAsyncFn<
+  FormData,
+  'email',
+  string
+> = async ({ value, fieldApi, signal }) => {
+  if (!value || !value.includes('@')) return undefined
+
+  try {
+    const response = await fetch(
+      `/api/check-email?email=${value}`,
+      { signal }
+    )
+    const data = await response.json()
+    return data.available ? undefined : 'Email already taken'
+  } catch (error) {
+    if (signal.aborted) return undefined
+    return 'Error checking email availability'
+  }
+}
+```
+
+## Validation Union Types
+
+### FormValidateOrFn
+
+A union type that accepts either a validation function or a Standard Schema.
+
+```typescript
+type FormValidateOrFn<TFormData> =
+  | FormValidateFn<TFormData>
+  | StandardSchemaV1<TFormData, unknown>
+```
+
+### FormAsyncValidateOrFn
+
+A union type for async validation that accepts either a validation function or a Standard Schema.
+
+```typescript
+type FormAsyncValidateOrFn<TFormData> =
+  | FormValidateAsyncFn<TFormData>
+  | StandardSchemaV1<TFormData, unknown>
+```
+
+### FieldValidateOrFn
+
+A union type that accepts either a field validation function or a Standard Schema.
+
+```typescript
+type FieldValidateOrFn<TParentData, TName, TData> =
+  | FieldValidateFn<TParentData, TName, TData>
+  | StandardSchemaV1<TData, unknown>
+```
+
+### FieldAsyncValidateOrFn
+
+A union type for async field validation.
+
+```typescript
+type FieldAsyncValidateOrFn<TParentData, TName, TData> =
+  | FieldValidateAsyncFn<TParentData, TName, TData>
+  | StandardSchemaV1<TData, unknown>
+```
+
+## Validation Errors
+
+### ValidationError
+
+```typescript
+type ValidationError = unknown
+```
+
+A validation error can be any value. Typically a string for simple errors, or an object for structured errors.
+
+### GlobalFormValidationError
+
+A structured error object for form-level validation that includes both form-level and field-level errors.
+
+```typescript
+type GlobalFormValidationError<TFormData> = {
+  form?: ValidationError
+  fields: Partial<Record<DeepKeys<TFormData>, ValidationError>>
+}
+```
+
+<ParamField path="form" type="ValidationError" optional>
+  A form-level error message
+</ParamField>
+
+<ParamField path="fields" type="Record<string, ValidationError>" required>
+  Field-specific error messages
+</ParamField>
+
+#### Example
+
+```typescript
+const error: GlobalFormValidationError<FormData> = {
+  form: 'Please fix the errors below',
+  fields: {
+    email: 'Invalid email format',
+    password: 'Password is too weak',
+    'address.zip': 'Invalid zip code',
+  },
+}
+```
+
+### ValidationErrorMap
+
+An object mapping validation events to their errors.
+
+```typescript
+type ValidationErrorMap<
+  TOnMountReturn = unknown,
+  TOnChangeReturn = unknown,
+  TOnChangeAsyncReturn = unknown,
+  TOnBlurReturn = unknown,
+  TOnBlurAsyncReturn = unknown,
+  TOnSubmitReturn = unknown,
+  TOnSubmitAsyncReturn = unknown,
+  TOnDynamicReturn = unknown,
+  TOnDynamicAsyncReturn = unknown,
+  TOnServerReturn = unknown
+> = {
+  onMount?: TOnMountReturn
+  onChange?: TOnChangeReturn | TOnChangeAsyncReturn
+  onBlur?: TOnBlurReturn | TOnBlurAsyncReturn
+  onSubmit?: TOnSubmitReturn | TOnSubmitAsyncReturn
+  onDynamic?: TOnDynamicReturn | TOnDynamicAsyncReturn
+  onServer?: TOnServerReturn
+}
+```
+
+## Validation Events
+
+### ValidationCause
+
+The event that triggered validation.
+
+```typescript
+type ValidationCause =
+  | 'change'  // Value changed
+  | 'blur'    // Field lost focus
+  | 'submit'  // Form submitted
+  | 'mount'   // Field/form mounted
+  | 'server'  // Server-side validation
+  | 'dynamic' // Dynamic validation
+```
+
+## Using Schema Validators
+
+TanStack Form supports [Standard Schema](https://github.com/standard-schema/standard-schema) validators, which means you can use validation libraries like Zod, Valibot, Yup, and others.
+
+### Zod Example
+
+```typescript
+import { z } from 'zod'
+import { FormApi, FieldApi } from '@tanstack/form-core'
+
+const emailSchema = z.string().email('Invalid email format')
+
+const field = new FieldApi({
+  form,
+  name: 'email',
+  validators: {
+    onChange: emailSchema,
+  },
+})
+```
+
+### Valibot Example
+
+```typescript
+import * as v from 'valibot'
+
+const emailSchema = v.pipe(
+  v.string(),
+  v.email('Invalid email format')
+)
+
+const field = new FieldApi({
+  form,
+  name: 'email',
+  validators: {
+    onChange: emailSchema,
+  },
+})
+```
+
+### Form-Level Schema
+
+```typescript
+import { z } from 'zod'
+
+const formSchema = z.object({
+  email: z.string().email('Invalid email'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'Passwords do not match',
+  path: ['confirmPassword'],
+})
+
+const form = new FormApi({
+  defaultValues: {
+    email: '',
+    password: '',
+    confirmPassword: '',
+  },
+  validators: {
+    onChange: formSchema,
+  },
+})
+```
+
+## Complete Validation Example
+
+```typescript
+import { FormApi, FieldApi } from '@tanstack/form-core'
+import { z } from 'zod'
+
+interface RegistrationForm {
+  username: string
+  email: string
+  password: string
+  confirmPassword: string
+  age: number
+  terms: boolean
+}
+
+const form = new FormApi<RegistrationForm>({
+  defaultValues: {
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    age: 0,
+    terms: false,
+  },
+
+  // Form-level validators
+  validators: {
+    // Run on mount
+    onMount: ({ value }) => {
+      if (!value.terms) {
+        return {
+          form: 'You must accept the terms to continue',
+          fields: {
+            terms: 'Required',
+          },
+        }
+      }
+      return undefined
+    },
+
+    // Run on every change
+    onChange: ({ value }) => {
+      if (value.password && value.confirmPassword) {
+        if (value.password !== value.confirmPassword) {
+          return {
+            fields: {
+              confirmPassword: 'Passwords do not match',
+            },
+          }
+        }
+      }
+      return undefined
+    },
+
+    // Run async validation on change (debounced)
+    onChangeAsync: async ({ value, signal }) => {
+      if (value.username && value.username.length >= 3) {
+        try {
+          const response = await fetch(
+            `/api/check-username?username=${value.username}`,
+            { signal }
+          )
+          const data = await response.json()
+          
+          if (!data.available) {
+            return {
+              fields: {
+                username: 'Username already taken',
+              },
+            }
+          }
+        } catch (error) {
+          if (signal.aborted) return undefined
+          throw error
+        }
+      }
+      return undefined
+    },
+
+    onChangeAsyncDebounceMs: 500,
+
+    // Run on submit
+    onSubmit: ({ value }) => {
+      if (value.age < 18) {
+        return {
+          form: 'You must be 18 or older to register',
+          fields: {
+            age: 'Must be 18 or older',
+          },
+        }
+      }
+      return undefined
+    },
+  },
+})
+
+// Field-level validators
+const usernameField = new FieldApi({
+  form,
+  name: 'username',
+  validators: {
+    onChange: ({ value }) => {
+      if (!value) return 'Username is required'
+      if (value.length < 3) return 'Username must be at least 3 characters'
+      if (!/^[a-zA-Z0-9_]+$/.test(value)) {
+        return 'Only letters, numbers, and underscores allowed'
+      }
+      return undefined
+    },
+  },
+})
+
+const emailField = new FieldApi({
+  form,
+  name: 'email',
+  validators: {
+    // Using Zod schema
+    onChange: z.string().email('Invalid email format'),
+  },
+})
+
+const passwordField = new FieldApi({
+  form,
+  name: 'password',
+  validators: {
+    onChange: ({ value }) => {
+      if (!value) return 'Password is required'
+      if (value.length < 8) return 'Must be at least 8 characters'
+      if (!/[A-Z]/.test(value)) return 'Must contain an uppercase letter'
+      if (!/[a-z]/.test(value)) return 'Must contain a lowercase letter'
+      if (!/[0-9]/.test(value)) return 'Must contain a number'
+      return undefined
+    },
+  },
+})
+
+const ageField = new FieldApi({
+  form,
+  name: 'age',
+  validators: {
+    onBlur: ({ value }) => {
+      if (value < 13) return 'Must be 13 or older'
+      if (value > 120) return 'Invalid age'
+      return undefined
+    },
+  },
+})
+```
+
+## Best Practices
+
+### 1. Use Appropriate Validation Events
+
+- **onChange**: For immediate feedback (e.g., character count, format validation)
+- **onBlur**: For less intrusive validation (e.g., completeness checks)
+- **onSubmit**: For expensive or final validation (e.g., backend checks)
+- **onChangeAsync**: For server-side validation while typing (use with debounce)
+
+### 2. Debounce Async Validation
+
+Always debounce async validation to avoid excessive API calls:
+
+```typescript
+validators: {
+  onChangeAsync: async ({ value }) => {
+    // Expensive async validation
+  },
+  onChangeAsyncDebounceMs: 500, // Wait 500ms after user stops typing
+}
+```
+
+### 3. Use AbortSignal
+
+Always check the `signal` parameter in async validators to handle cancellation:
+
+```typescript
+onChangeAsync: async ({ value, signal }) => {
+  try {
+    const response = await fetch('/api/validate', { signal })
+    return await response.json()
+  } catch (error) {
+    if (signal.aborted) return undefined // Validation was cancelled
+    throw error
+  }
+}
+```
+
+### 4. Return Structured Errors
+
+For form-level validators, return structured errors to target specific fields:
+
+```typescript
+validators: {
+  onChange: ({ value }) => {
+    return {
+      form: 'Form has errors',
+      fields: {
+        field1: 'Error 1',
+        field2: 'Error 2',
+      },
+    }
+  },
+}
+```
+
+### 5. Combine Sync and Async Validation
+
+Run quick sync validation first, then async validation:
+
+```typescript
+validators: {
+  // Quick format check
+  onChange: ({ value }) => {
+    if (!value) return 'Required'
+    if (value.length < 3) return 'Too short'
+    return undefined
+  },
+  
+  // Expensive server check only if sync validation passes
+  onChangeAsync: async ({ value }) => {
+    const available = await checkAvailability(value)
+    return available ? undefined : 'Already taken'
+  },
+}
+```
+
+## See Also
+
+- [FormApi](/api/core/form-api) - Form API reference
+- [FieldApi](/api/core/field-api) - Field API reference
+- [FormOptions](/api/core/form-options) - Form configuration options
+- [FieldOptions](/api/core/field-options) - Field configuration options

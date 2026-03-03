@@ -1,0 +1,223 @@
+---
+title: Overview
+description: Overview of form state management and architecture in TanStack Form
+---
+
+TanStack Form is the ultimate solution for handling forms in web applications, providing a powerful and flexible approach to form management. Designed with first-class TypeScript support, headless UI components, and a framework-agnostic design, it streamlines form handling and ensures a seamless experience across various front-end frameworks.
+
+## Motivation
+
+Most web frameworks do not offer a comprehensive solution for form handling, leaving developers to create their own custom implementations or rely on less-capable libraries. This often results in a lack of consistency, poor performance, and increased development time. TanStack Form aims to address these challenges by providing an all-in-one solution for managing forms that is both powerful and easy to use.
+
+With TanStack Form, developers can tackle common form-related challenges such as:
+
+- **Reactive data binding and state management** - Keep your form state in sync with your UI effortlessly
+- **Complex validation and error handling** - Support for sync/async validation with flexible timing
+- **Accessibility and responsive design** - Build forms that work for everyone
+- **Internationalization and localization** - Easy integration with i18n solutions
+- **Cross-platform compatibility and custom styling** - Works with any framework and design system
+
+By providing a complete solution for these challenges, TanStack Form empowers developers to build robust and user-friendly forms with ease.
+
+## Framework-Agnostic Architecture
+
+TanStack Form is built on a framework-agnostic core (`@tanstack/form-core`) that provides all the state management and validation logic. Framework-specific adapters then provide bindings for:
+
+- **React** - `@tanstack/react-form`
+- **Vue** - `@tanstack/vue-form`
+- **Angular** - `@tanstack/angular-form`
+- **Solid** - `@tanstack/solid-form`
+- **Svelte** - `@tanstack/svelte-form`
+- **Lit** - `@tanstack/lit-form`
+
+This architecture ensures that the core logic is consistent across all frameworks while providing idiomatic APIs for each framework.
+
+<Note>
+  The framework-agnostic core means you can learn TanStack Form once and use it anywhere. The concepts and patterns remain the same regardless of your framework choice.
+</Note>
+
+## Core Concepts
+
+### Form State Management
+
+At the heart of TanStack Form is the `FormApi` class, which manages:
+
+- **Field values** - The current data in your form
+- **Field metadata** - Touched, dirty, validating states
+- **Validation errors** - Per-field and form-level errors
+- **Submission state** - Loading, success, and error states
+
+```tsx
+import { useForm } from '@tanstack/react-form'
+
+function MyForm() {
+  const form = useForm({
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+      email: '',
+    },
+    onSubmit: async ({ value }) => {
+      // Handle form submission
+      console.log(value)
+    },
+  })
+
+  // Access form state
+  console.log(form.state.values)
+  console.log(form.state.errors)
+  console.log(form.state.isSubmitting)
+}
+```
+
+### Field-Level Control
+
+Fields are registered using the `Field` component or API, which provides:
+
+- **Type-safe field names** - Autocomplete and validation for field paths
+- **Independent validation** - Each field can have its own validation logic
+- **Granular re-rendering** - Only affected fields re-render on changes
+
+```tsx
+<form.Field
+  name="firstName"
+  validators={{
+    onChange: ({ value }) =>
+      !value
+        ? 'A first name is required'
+        : value.length < 3
+          ? 'First name must be at least 3 characters'
+          : undefined,
+    onChangeAsyncDebounceMs: 500,
+    onChangeAsync: async ({ value }) => {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      return value.includes('error') && 'No "error" allowed in first name'
+    },
+  }}
+  children={(field) => (
+    <>
+      <label htmlFor={field.name}>First Name:</label>
+      <input
+        id={field.name}
+        name={field.name}
+        value={field.state.value}
+        onBlur={field.handleBlur}
+        onChange={(e) => field.handleChange(e.target.value)}
+      />
+      {field.state.meta.errors && (
+        <em>{field.state.meta.errors.join(', ')}</em>
+      )}
+    </>
+  )}
+/>
+```
+
+### Validation Flexibility
+
+TanStack Form supports multiple validation strategies:
+
+- **Timing customizations** - Validate on blur, change, submit, or mount
+- **Synchronous validation** - Immediate validation with instant feedback
+- **Asynchronous validation** - Server-side validation with debouncing and cancellation
+- **Custom validation logic** - Write your own validators or use libraries like Zod or Valibot
+- **Form-level validation** - Validate across multiple fields
+
+<Tip>
+  Use `onChangeAsyncDebounceMs` to prevent excessive API calls during async validation. This provides a better user experience and reduces server load.
+</Tip>
+
+### Controlled Inputs
+
+TanStack Form uses controlled inputs by default, which provides:
+
+- **Predictable state** - Always know the current form state
+- **Easier testing** - Test forms by passing values and asserting outputs
+- **Non-DOM support** - Works with React Native, Three.js, and other renderers
+- **Enhanced conditional logic** - Show/hide fields based on form state
+- **Better debugging** - Log form state to debug issues
+
+```tsx
+const form = useForm({
+  defaultValues: {
+    employed: false,
+    jobTitle: '',
+  },
+})
+
+// Conditionally render fields based on form state
+<form.Field name="employed" />
+{form.state.values.employed && <form.Field name="jobTitle" />}
+```
+
+## Key Features
+
+### Type-Safe Field Access
+
+TanStack Form provides full TypeScript support with deep type inference for nested objects and arrays:
+
+```tsx
+interface Person {
+  name: string
+  age: number
+  addresses: Array<{
+    street: string
+    city: string
+  }>
+}
+
+const form = useForm<Person>({
+  defaultValues: {
+    name: '',
+    age: 0,
+    addresses: [],
+  },
+})
+
+// Type-safe field names with autocomplete
+<form.Field name="name" />
+<form.Field name="addresses[0].street" />
+```
+
+### Array and Nested Fields
+
+Manipulate array fields with built-in utilities:
+
+```tsx
+// Push a new item
+form.pushFieldValue('addresses', { street: '', city: '' })
+
+// Remove an item
+form.removeFieldValue('addresses', 0)
+
+// Swap items
+form.swapFieldValues('addresses', 0, 1)
+```
+
+### Subscriptions for Performance
+
+Subscribe to specific parts of form state to optimize re-renders:
+
+```tsx
+<form.Subscribe
+  selector={(state) => [state.canSubmit, state.isSubmitting]}
+  children={([canSubmit, isSubmitting]) => (
+    <button type="submit" disabled={!canSubmit}>
+      {isSubmitting ? 'Submitting...' : 'Submit'}
+    </button>
+  )}
+/>
+```
+
+<Note>
+  Using `form.Subscribe` with a selector allows you to only re-render when specific parts of the form state change, improving performance in complex forms.
+</Note>
+
+## Getting Started
+
+Ready to build powerful forms? Check out the [Installation Guide](/installation) to get started, or explore the [API Reference](/api/core/form-api) for detailed documentation.
+
+## Next Steps
+
+- Learn about the [Design Philosophy](/concepts/philosophy) behind TanStack Form
+- Explore [TypeScript support](/concepts/typescript) and type inference
+- Follow the [Quick Start Guide](/quickstart) to build your first form

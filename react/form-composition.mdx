@@ -1,0 +1,528 @@
+---
+title: Form Composition
+description: Build scalable forms with custom hooks and reusable components
+---
+
+A common criticism of TanStack Form is that it is verbose out-of-the-box. While this verbosity can be useful for educational purposes, it's not ideal in production use cases.
+
+This guide shows you how to compose forms using custom form hooks, pre-bound components, and reusable field groups to reduce boilerplate and improve type safety.
+
+## Custom Form Hooks
+
+The most powerful way to compose forms is to create custom form hooks using `createFormHook`. This allows you to create pre-bound UI components and reduce repetition across your application.
+
+<Steps>
+  <Step title="Create form contexts">
+    First, create the form and field contexts:
+    
+    ```tsx
+    import { createFormHookContexts } from '@tanstack/react-form'
+    
+    export const { fieldContext, formContext, useFieldContext } =
+      createFormHookContexts()
+    ```
+  </Step>
+  
+  <Step title="Create the form hook">
+    Create your custom form hook with `createFormHook`:
+    
+    ```tsx
+    import { createFormHook } from '@tanstack/react-form'
+    
+    const { useAppForm } = createFormHook({
+      fieldContext,
+      formContext,
+      fieldComponents: {},
+      formComponents: {},
+    })
+    ```
+    
+    This `useAppForm` hook is identical to `useForm` initially, but you'll add components next.
+  </Step>
+  
+  <Step title="Use the hook">
+    Use `useAppForm` just like `useForm`:
+    
+    ```tsx
+    function App() {
+      const form = useAppForm({
+        defaultValues: {
+          firstName: 'John',
+          lastName: 'Doe',
+        },
+      })
+    
+      return <form.Field name="firstName" />
+    }
+    ```
+  </Step>
+</Steps>
+
+## Pre-bound Field Components
+
+Create reusable field components that automatically connect to your form context:
+
+```tsx
+import { useFieldContext } from './form-context'
+
+export function TextField({ label }: { label: string }) {
+  const field = useFieldContext<string>()
+  return (
+    <label>
+      <span>{label}</span>
+      <input
+        value={field.state.value}
+        onChange={(e) => field.handleChange(e.target.value)}
+      />
+    </label>
+  )
+}
+```
+
+Register the component with your form hook:
+
+```tsx
+import { TextField } from './text-field'
+
+const { useAppForm } = createFormHook({
+  fieldContext,
+  formContext,
+  fieldComponents: {
+    TextField,
+  },
+  formComponents: {},
+})
+```
+
+Use it in your form with full type safety:
+
+```tsx
+function App() {
+  const form = useAppForm({
+    defaultValues: {
+      firstName: 'John',
+      lastName: 'Doe',
+    },
+  })
+
+  return (
+    <form.AppField
+      name="firstName"
+      children={(field) => <field.TextField label="First Name" />}
+    />
+  )
+}
+```
+
+<Note>
+Context in TanStack Form does not cause unnecessary re-renders. The values provided through context are static class instances with reactive properties powered by TanStack Store.
+</Note>
+
+## Pre-bound Form Components
+
+Create reusable form-level components like submit buttons:
+
+```tsx
+function SubmitButton({ label }: { label: string }) {
+  const form = useFormContext()
+  return (
+    <form.Subscribe selector={(state) => state.isSubmitting}>
+      {(isSubmitting) => (
+        <button type="submit" disabled={isSubmitting}>
+          {label}
+        </button>
+      )}
+    </form.Subscribe>
+  )
+}
+
+const { useAppForm } = createFormHook({
+  fieldComponents: {},
+  formComponents: {
+    SubmitButton,
+  },
+  fieldContext,
+  formContext,
+})
+
+function App() {
+  const form = useAppForm({
+    defaultValues: {
+      firstName: 'John',
+      lastName: 'Doe',
+    },
+  })
+
+  return (
+    <form.AppForm>
+      <form.SubmitButton label="Submit" />
+    </form.AppForm>
+  )
+}
+```
+
+## Breaking Big Forms into Smaller Pieces
+
+Use the `withForm` higher-order component to break large forms into smaller, manageable pieces:
+
+```tsx
+const { useAppForm, withForm } = createFormHook({
+  fieldComponents: {
+    TextField,
+  },
+  formComponents: {
+    SubmitButton,
+  },
+  fieldContext,
+  formContext,
+})
+
+const ChildForm = withForm({
+  defaultValues: {
+    firstName: 'John',
+    lastName: 'Doe',
+  },
+  props: {
+    title: 'Child Form',
+  },
+  render: function Render({ form, title }) {
+    return (
+      <div>
+        <p>{title}</p>
+        <form.AppField
+          name="firstName"
+          children={(field) => <field.TextField label="First Name" />}
+        />
+        <form.AppForm>
+          <form.SubmitButton label="Submit" />
+        </form.AppForm>
+      </div>
+    )
+  },
+})
+
+function App() {
+  const form = useAppForm({
+    defaultValues: {
+      firstName: 'John',
+      lastName: 'Doe',
+    },
+  })
+
+  return <ChildForm form={form} title="Testing" />
+}
+```
+
+<Warning>
+Use a named function for `render` to avoid ESLint errors with hooks:
+
+```tsx
+// ✅ This works
+render: function Render({ form, title }) {
+  // hooks work fine
+}
+
+// ❌ This causes ESLint errors
+render: ({ form, title }) => {
+  // ESLint may complain about hooks
+}
+```
+</Warning>
+
+## Reusing Groups of Fields
+
+The `withFieldGroup` higher-order component allows you to create reusable groups of related fields:
+
+```tsx
+type PasswordFields = {
+  password: string
+  confirm_password: string
+}
+
+const defaultValues: PasswordFields = {
+  password: '',
+  confirm_password: '',
+}
+
+const FieldGroupPasswordFields = withFieldGroup({
+  defaultValues,
+  props: {
+    title: 'Password',
+  },
+  render: function Render({ group, title }) {
+    const password = useStore(group.store, (state) => state.values.password)
+
+    return (
+      <div>
+        <h2>{title}</h2>
+        <group.AppField name="password">
+          {(field) => <field.TextField label="Password" />}
+        </group.AppField>
+        <group.AppField
+          name="confirm_password"
+          validators={{
+            onChangeListenTo: ['password'],
+            onChange: ({ value, fieldApi }) => {
+              if (value !== group.getFieldValue('password')) {
+                return 'Passwords do not match'
+              }
+              return undefined
+            },
+          }}
+        >
+          {(field) => (
+            <div>
+              <field.TextField label="Confirm Password" />
+              <field.ErrorInfo />
+            </div>
+          )}
+        </group.AppField>
+      </div>
+    )
+  },
+})
+```
+
+Use the field group in any form:
+
+```tsx
+type FormValues = {
+  name: string
+  age: number
+  account_data: PasswordFields
+}
+
+function App() {
+  const form = useAppForm({
+    defaultValues: {
+      name: '',
+      age: 0,
+      account_data: {
+        password: '',
+        confirm_password: '',
+      },
+    },
+  })
+
+  return (
+    <form.AppForm>
+      <FieldGroupPasswordFields
+        form={form}
+        fields="account_data"
+        title="Passwords"
+      />
+    </form.AppForm>
+  )
+}
+```
+
+### Mapping Field Group Values
+
+You can map field group values to different locations in your form:
+
+```tsx
+type FormValues = {
+  name: string
+  age: number
+  password: string
+  confirm_password: string
+}
+
+function App() {
+  const form = useAppForm({
+    defaultValues: {
+      name: '',
+      age: 0,
+      password: '',
+      confirm_password: '',
+    },
+  })
+
+  return (
+    <form.AppForm>
+      <FieldGroupPasswordFields
+        form={form}
+        fields={{
+          password: 'password',
+          confirm_password: 'confirm_password',
+        }}
+        title="Passwords"
+      />
+    </form.AppForm>
+  )
+}
+```
+
+Create a helper for top-level mappings:
+
+```tsx
+const passwordFields = createFieldMap(defaultValues)
+/* Generates:
+{
+  'password': 'password',
+  'confirm_password': 'confirm_password'
+}
+*/
+
+<FieldGroupPasswordFields
+  form={form}
+  fields={passwordFields}
+  title="Passwords"
+/>
+```
+
+## Tree-shaking with Lazy Loading
+
+For large applications, use React's `lazy` to code-split form and field components:
+
+```tsx
+// src/hooks/form-context.ts
+import { createFormHookContexts } from '@tanstack/react-form'
+
+export const { fieldContext, useFieldContext, formContext, useFormContext } =
+  createFormHookContexts()
+```
+
+```tsx
+// src/components/text-field.tsx
+import { useFieldContext } from '../hooks/form-context'
+
+export default function TextField({ label }: { label: string }) {
+  const field = useFieldContext<string>()
+
+  return (
+    <label>
+      <span>{label}</span>
+      <input
+        value={field.state.value}
+        onChange={(e) => field.handleChange(e.target.value)}
+      />
+    </label>
+  )
+}
+```
+
+```tsx
+// src/hooks/form.ts
+import { lazy } from 'react'
+import { createFormHook } from '@tanstack/react-form'
+
+const TextField = lazy(() => import('../components/text-field'))
+
+const { useAppForm, withForm } = createFormHook({
+  fieldContext,
+  formContext,
+  fieldComponents: {
+    TextField,
+  },
+  formComponents: {},
+})
+```
+
+```tsx
+// src/App.tsx
+import { Suspense } from 'react'
+import { PeoplePage } from './features/people/form'
+
+export default function App() {
+  return (
+    <Suspense fallback={<p>Loading...</p>}>
+      <PeoplePage />
+    </Suspense>
+  )
+}
+```
+
+## Complete Example
+
+Here's how everything comes together:
+
+```tsx
+// /src/hooks/form.ts - Used across the entire app
+const { fieldContext, useFieldContext, formContext, useFormContext } =
+  createFormHookContexts()
+
+function TextField({ label }: { label: string }) {
+  const field = useFieldContext<string>()
+  return (
+    <label>
+      <span>{label}</span>
+      <input
+        value={field.state.value}
+        onChange={(e) => field.handleChange(e.target.value)}
+      />
+    </label>
+  )
+}
+
+function SubmitButton({ label }: { label: string }) {
+  const form = useFormContext()
+  return (
+    <form.Subscribe selector={(state) => state.isSubmitting}>
+      {(isSubmitting) => <button disabled={isSubmitting}>{label}</button>}
+    </form.Subscribe>
+  )
+}
+
+const { useAppForm, withForm } = createFormHook({
+  fieldComponents: {
+    TextField,
+  },
+  formComponents: {
+    SubmitButton,
+  },
+  fieldContext,
+  formContext,
+})
+
+// /src/features/people/shared-form.ts
+const formOpts = formOptions({
+  defaultValues: {
+    firstName: 'John',
+    lastName: 'Doe',
+  },
+})
+
+// /src/features/people/nested-form.ts
+const ChildForm = withForm({
+  ...formOpts,
+  props: {
+    title: 'Child Form',
+  },
+  render: ({ form, title }) => {
+    return (
+      <div>
+        <p>{title}</p>
+        <form.AppField
+          name="firstName"
+          children={(field) => <field.TextField label="First Name" />}
+        />
+        <form.AppForm>
+          <form.SubmitButton label="Submit" />
+        </form.AppForm>
+      </div>
+    )
+  },
+})
+
+// /src/features/people/page.ts
+const Parent = () => {
+  const form = useAppForm({
+    ...formOpts,
+  })
+
+  return <ChildForm form={form} title="Testing" />
+}
+```
+
+## API Usage Guidance
+
+![Form Composition Decision Tree](https://raw.githubusercontent.com/TanStack/form/main/docs/assets/react_form_composability.svg)
+
+Use this flowchart to decide which composition API to use:
+
+- **Single form, no reusability needed**: Use `useForm` and `form.Field`
+- **Multiple forms with shared components**: Use `createFormHook` with field/form components
+- **Large form split into sections**: Use `withForm` to break into smaller components
+- **Reusable field groups**: Use `withFieldGroup` for groups of related fields
+- **Code splitting needed**: Use React `lazy` with `createFormHook`

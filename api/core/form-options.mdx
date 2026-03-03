@@ -1,0 +1,611 @@
+---
+title: FormOptions
+description: Configuration options for FormApi
+---
+
+# FormOptions
+
+The `FormOptions` interface defines the configuration options for creating and managing a form with `FormApi`.
+
+## Type Definition
+
+```typescript
+interface FormOptions<
+  TFormData,
+  TOnMount extends undefined | FormValidateOrFn<TFormData>,
+  TOnChange extends undefined | FormValidateOrFn<TFormData>,
+  TOnChangeAsync extends undefined | FormAsyncValidateOrFn<TFormData>,
+  TOnBlur extends undefined | FormValidateOrFn<TFormData>,
+  TOnBlurAsync extends undefined | FormAsyncValidateOrFn<TFormData>,
+  TOnSubmit extends undefined | FormValidateOrFn<TFormData>,
+  TOnSubmitAsync extends undefined | FormAsyncValidateOrFn<TFormData>,
+  TOnDynamic extends undefined | FormValidateOrFn<TFormData>,
+  TOnDynamicAsync extends undefined | FormAsyncValidateOrFn<TFormData>,
+  TOnServer extends undefined | FormAsyncValidateOrFn<TFormData>,
+  TSubmitMeta = never
+>
+```
+
+## Properties
+
+### defaultValues
+
+```typescript
+defaultValues?: TFormData
+```
+
+Set initial values for your form.
+
+#### Example
+
+```typescript
+const form = new FormApi({
+  defaultValues: {
+    firstName: 'John',
+    lastName: 'Doe',
+    email: 'john@example.com',
+  },
+})
+```
+
+### defaultState
+
+```typescript
+defaultState?: Partial<FormState<TFormData>>
+```
+
+The default state for the form. Useful for initializing form state like errors or metadata.
+
+#### Example
+
+```typescript
+const form = new FormApi({
+  defaultValues: { name: '' },
+  defaultState: {
+    isSubmitting: false,
+    submissionAttempts: 0,
+  },
+})
+```
+
+### formId
+
+```typescript
+formId?: string
+```
+
+The form name, used for devtools and identification. If not provided, a unique ID will be generated automatically.
+
+### validators
+
+```typescript
+validators?: FormValidators<TFormData>
+```
+
+A list of validators to pass to the form. See [Validators](/api/core/validators) for details.
+
+#### Example
+
+```typescript
+const form = new FormApi({
+  defaultValues: { name: '', email: '' },
+  validators: {
+    onChange: ({ value }) => {
+      if (!value.name || !value.email) {
+        return {
+          form: 'Name and email are required',
+          fields: {
+            name: !value.name ? 'Name is required' : undefined,
+            email: !value.email ? 'Email is required' : undefined,
+          },
+        }
+      }
+      return undefined
+    },
+    onChangeAsync: async ({ value }) => {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      if (value.email && !value.email.includes('@')) {
+        return {
+          fields: {
+            email: 'Invalid email format',
+          },
+        }
+      }
+      return undefined
+    },
+  },
+})
+```
+
+### asyncAlways
+
+```typescript
+asyncAlways?: boolean
+```
+
+If `true`, always run async validation, even when sync validation has produced an error. Defaults to `false`.
+
+#### Example
+
+```typescript
+const form = new FormApi({
+  defaultValues: { email: '' },
+  asyncAlways: true,
+  validators: {
+    onChange: ({ value }) => {
+      // Sync validation
+      if (!value.email) return { fields: { email: 'Required' } }
+      return undefined
+    },
+    onChangeAsync: async ({ value }) => {
+      // This will run even if sync validation fails
+      const isAvailable = await checkEmailAvailability(value.email)
+      if (!isAvailable) {
+        return { fields: { email: 'Email already taken' } }
+      }
+      return undefined
+    },
+  },
+})
+```
+
+### asyncDebounceMs
+
+```typescript
+asyncDebounceMs?: number
+```
+
+Optional time in milliseconds to debounce async validation. This is a default that can be overridden by specific validator debounce settings.
+
+#### Example
+
+```typescript
+const form = new FormApi({
+  defaultValues: { username: '' },
+  asyncDebounceMs: 500, // Wait 500ms after user stops typing
+  validators: {
+    onChangeAsync: async ({ value }) => {
+      const isAvailable = await checkUsernameAvailability(value.username)
+      if (!isAvailable) {
+        return { fields: { username: 'Username taken' } }
+      }
+      return undefined
+    },
+  },
+})
+```
+
+### canSubmitWhenInvalid
+
+```typescript
+canSubmitWhenInvalid?: boolean
+```
+
+If `true`, allows the form to be submitted in an invalid state (i.e., `canSubmit` will remain `true` regardless of validation errors). Defaults to `false`.
+
+#### Example
+
+```typescript
+const form = new FormApi({
+  defaultValues: { draft: '' },
+  canSubmitWhenInvalid: true, // Allow saving drafts even with errors
+  onSubmit: async ({ value }) => {
+    await saveDraft(value)
+  },
+})
+```
+
+### validationLogic
+
+```typescript
+validationLogic?: ValidationLogicFn
+```
+
+Custom validation logic function. Advanced use case for customizing when and how validation runs.
+
+### listeners
+
+```typescript
+listeners?: FormListeners<TFormData, TSubmitMeta>
+```
+
+Form-level listeners for lifecycle events.
+
+#### Example
+
+```typescript
+const form = new FormApi({
+  defaultValues: { name: '' },
+  listeners: {
+    onChange: ({ formApi, fieldApi }) => {
+      console.log('Form changed:', formApi.state.values)
+    },
+    onBlur: ({ formApi, fieldApi }) => {
+      console.log('Field blurred:', fieldApi.name)
+    },
+    onMount: ({ formApi }) => {
+      console.log('Form mounted')
+    },
+    onSubmit: ({ formApi, meta }) => {
+      console.log('Form submitted with meta:', meta)
+    },
+  },
+})
+```
+
+### onSubmit
+
+```typescript
+onSubmit?: (props: {
+  value: TFormData
+  formApi: FormApi<TFormData>
+  meta: TSubmitMeta
+}) => any | Promise<any>
+```
+
+A function to be called when the form is submitted. This is where you handle the valid form data.
+
+#### Example
+
+```typescript
+const form = new FormApi({
+  defaultValues: { name: '', email: '' },
+  onSubmit: async ({ value, formApi }) => {
+    try {
+      await fetch('/api/submit', {
+        method: 'POST',
+        body: JSON.stringify(value),
+      })
+      console.log('Form submitted successfully!')
+    } catch (error) {
+      console.error('Submission failed:', error)
+      throw error // Re-throw to mark submission as failed
+    }
+  },
+})
+```
+
+### onSubmitInvalid
+
+```typescript
+onSubmitInvalid?: (props: {
+  value: TFormData
+  formApi: FormApi<TFormData>
+  meta: TSubmitMeta
+}) => void
+```
+
+Specify an action for scenarios where the user tries to submit an invalid form.
+
+#### Example
+
+```typescript
+const form = new FormApi({
+  defaultValues: { name: '', email: '' },
+  validators: {
+    onChange: ({ value }) => {
+      if (!value.name) return { fields: { name: 'Required' } }
+      return undefined
+    },
+  },
+  onSubmitInvalid: ({ value, formApi }) => {
+    console.log('Cannot submit, form has errors:', formApi.state.errors)
+    // Show notification to user
+    toast.error('Please fix the errors before submitting')
+  },
+})
+```
+
+### onSubmitMeta
+
+```typescript
+onSubmitMeta?: TSubmitMeta
+```
+
+Default metadata to pass from the `handleSubmit` handler to the `onSubmit` function.
+
+#### Example
+
+```typescript
+interface SubmitMeta {
+  source: 'save' | 'publish'
+}
+
+const form = new FormApi<FormData, SubmitMeta>({
+  defaultValues: { title: '', content: '' },
+  onSubmitMeta: { source: 'save' },
+  onSubmit: async ({ value, meta }) => {
+    if (meta.source === 'publish') {
+      await publishPost(value)
+    } else {
+      await saveDraft(value)
+    }
+  },
+})
+
+// Can override when calling handleSubmit
+await form.handleSubmit({ source: 'publish' })
+```
+
+### transform
+
+```typescript
+transform?: (data: unknown) => unknown
+```
+
+Transform function that runs once on form initialization. Used for transforming state during SSR/hydration.
+
+## FormValidators
+
+The `validators` property accepts a `FormValidators` object with the following properties:
+
+### onMount
+
+```typescript
+onMount?: FormValidateOrFn<TFormData>
+```
+
+Optional function that fires as soon as the form mounts.
+
+### onChange
+
+```typescript
+onChange?: FormValidateOrFn<TFormData>
+```
+
+Optional function that validates the form data whenever a value changes.
+
+### onChangeAsync
+
+```typescript
+onChangeAsync?: FormAsyncValidateOrFn<TFormData>
+```
+
+Optional async validation for the `onChange` event. Useful for complex validation like server requests.
+
+### onChangeAsyncDebounceMs
+
+```typescript
+onChangeAsyncDebounceMs?: number
+```
+
+The time in milliseconds to debounce the `onChangeAsync` validation.
+
+### onBlur
+
+```typescript
+onBlur?: FormValidateOrFn<TFormData>
+```
+
+Optional function that validates the form data when a field loses focus.
+
+### onBlurAsync
+
+```typescript
+onBlurAsync?: FormAsyncValidateOrFn<TFormData>
+```
+
+Optional async validation for the `onBlur` event.
+
+### onBlurAsyncDebounceMs
+
+```typescript
+onBlurAsyncDebounceMs?: number
+```
+
+The time in milliseconds to debounce the `onBlurAsync` validation.
+
+### onSubmit
+
+```typescript
+onSubmit?: FormValidateOrFn<TFormData>
+```
+
+Optional function that validates the form data on submission.
+
+### onSubmitAsync
+
+```typescript
+onSubmitAsync?: FormAsyncValidateOrFn<TFormData>
+```
+
+Optional async validation for the `onSubmit` event.
+
+### onDynamic
+
+```typescript
+onDynamic?: FormValidateOrFn<TFormData>
+```
+
+Optional dynamic validation function.
+
+### onDynamicAsync
+
+```typescript
+onDynamicAsync?: FormAsyncValidateOrFn<TFormData>
+```
+
+Optional async dynamic validation.
+
+### onDynamicAsyncDebounceMs
+
+```typescript
+onDynamicAsyncDebounceMs?: number
+```
+
+The time in milliseconds to debounce the `onDynamicAsync` validation.
+
+## FormListeners
+
+The `listeners` property accepts a `FormListeners` object:
+
+### onChange
+
+```typescript
+onChange?: (props: {
+  formApi: FormApi<TFormData>
+  fieldApi: AnyFieldApi
+}) => void
+```
+
+Called whenever any field value changes.
+
+### onChangeDebounceMs
+
+```typescript
+onChangeDebounceMs?: number
+```
+
+Debounce time for the `onChange` listener.
+
+### onBlur
+
+```typescript
+onBlur?: (props: {
+  formApi: FormApi<TFormData>
+  fieldApi: AnyFieldApi
+}) => void
+```
+
+Called whenever any field loses focus.
+
+### onBlurDebounceMs
+
+```typescript
+onBlurDebounceMs?: number
+```
+
+Debounce time for the `onBlur` listener.
+
+### onMount
+
+```typescript
+onMount?: (props: {
+  formApi: FormApi<TFormData>
+}) => void
+```
+
+Called when the form mounts.
+
+### onSubmit
+
+```typescript
+onSubmit?: (props: {
+  formApi: FormApi<TFormData>
+  meta: TSubmitMeta
+}) => void
+```
+
+Called when the form is submitted (before validation).
+
+## Complete Example
+
+```typescript
+import { FormApi } from '@tanstack/form-core'
+import { z } from 'zod'
+
+interface FormData {
+  username: string
+  email: string
+  age: number
+}
+
+const form = new FormApi<FormData>({
+  // Initial values
+  defaultValues: {
+    username: '',
+    email: '',
+    age: 0,
+  },
+
+  // Form identification
+  formId: 'user-registration-form',
+
+  // Validation settings
+  asyncAlways: false,
+  asyncDebounceMs: 300,
+  canSubmitWhenInvalid: false,
+
+  // Validators
+  validators: {
+    onChange: ({ value }) => {
+      const errors: any = { fields: {} }
+      
+      if (!value.username) {
+        errors.fields.username = 'Username is required'
+      }
+      
+      if (!value.email) {
+        errors.fields.email = 'Email is required'
+      }
+      
+      if (value.age < 18) {
+        errors.fields.age = 'Must be 18 or older'
+      }
+      
+      return Object.keys(errors.fields).length > 0 ? errors : undefined
+    },
+    
+    onChangeAsync: async ({ value }) => {
+      if (value.username) {
+        const available = await checkUsernameAvailability(value.username)
+        if (!available) {
+          return { fields: { username: 'Username already taken' } }
+        }
+      }
+      return undefined
+    },
+    
+    onChangeAsyncDebounceMs: 500,
+  },
+
+  // Listeners
+  listeners: {
+    onChange: ({ formApi }) => {
+      console.log('Form changed:', formApi.state.values)
+    },
+    onMount: ({ formApi }) => {
+      console.log('Form mounted')
+      // Load saved draft if exists
+      const draft = localStorage.getItem('form-draft')
+      if (draft) {
+        formApi.reset(JSON.parse(draft), { keepDefaultValues: true })
+      }
+    },
+  },
+
+  // Submission handlers
+  onSubmit: async ({ value, formApi }) => {
+    console.log('Submitting:', value)
+    const response = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(value),
+    })
+    
+    if (!response.ok) {
+      throw new Error('Registration failed')
+    }
+    
+    console.log('Registration successful!')
+    localStorage.removeItem('form-draft')
+  },
+  
+  onSubmitInvalid: ({ formApi }) => {
+    console.error('Form has errors:', formApi.state.errors)
+    alert('Please fix the errors before submitting')
+  },
+})
+
+async function checkUsernameAvailability(username: string): Promise<boolean> {
+  const response = await fetch(`/api/check-username?username=${username}`)
+  const data = await response.json()
+  return data.available
+}
+```
+
+## See Also
+
+- [FormApi](/api/core/form-api) - The FormApi class
+- [FieldOptions](/api/core/field-options) - Configuration options for fields
+- [Validators](/api/core/validators) - Validation functions and types

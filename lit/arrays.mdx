@@ -1,0 +1,421 @@
+---
+title: Array Fields
+description: Manage dynamic lists and array fields in TanStack Form for Lit
+---
+
+TanStack Form supports arrays as form values, enabling you to build dynamic forms with lists of items.
+
+## Basic Array Usage
+
+To work with arrays, access `field.state.value` on an array field and use Lit's `repeat` directive to render items.
+
+### Simple Array Example
+
+```ts
+import { LitElement, html } from 'lit'
+import { customElement } from 'lit/decorators.js'
+import { TanStackFormController } from '@tanstack/lit-form'
+import { repeat } from 'lit/directives/repeat.js'
+
+export class TestForm extends LitElement {
+  #form = new TanStackFormController(this, {
+    defaultValues: {
+      people: [] as Array<{ name: string; age: number }>,
+    },
+  })
+
+  render() {
+    return html`
+      <form
+        @submit=${(e: Event) => {
+          e.preventDefault()
+        }}
+      >
+        <h1>Please enter your details</h1>
+        ${this.#form.field(
+          {
+            name: 'people',
+          },
+          (peopleField) => {
+            return html`
+              ${repeat(
+                peopleField.state.value,
+                (_, index) => index,
+                (_, index) => {
+                  return html`<!-- Render each person -->`
+                },
+              )}
+            `
+          },
+        )}
+      </form>
+    `
+  }
+}
+```
+
+## Adding Items to Arrays
+
+Use the `pushValue` method to add new items to an array field:
+
+```ts
+${this.#form.field(
+  {
+    name: 'people',
+  },
+  (peopleField) => {
+    return html`
+      <button
+        type="button"
+        @click=${() => {
+          peopleField.pushValue({ name: '', age: 0 })
+        }}
+      >
+        Add Person
+      </button>
+    `
+  },
+)}
+```
+
+Every time you call `pushValue`, the list re-renders with the new item.
+
+## Accessing Nested Fields
+
+Access individual array items using bracket notation in the field name:
+
+```ts
+${this.#form.field(
+  {
+    name: `people[${index}].name`,
+  },
+  (field) => {
+    return html`
+      <input
+        type="text"
+        placeholder="Name"
+        .value="${field.state.value}"
+        @input="${(e: Event) => {
+          const target = e.target as HTMLInputElement
+          field.handleChange(target.value)
+        }}"
+      />
+    `
+  },
+)}
+```
+
+## Complete Array Example
+
+Here's a full example with adding items and nested field access:
+
+```ts
+import { LitElement, html } from 'lit'
+import { customElement } from 'lit/decorators.js'
+import { TanStackFormController } from '@tanstack/lit-form'
+import { repeat } from 'lit/directives/repeat.js'
+
+interface Person {
+  name: string
+  age: number
+}
+
+const defaultPeople: { people: Array<Person> } = { people: [] }
+
+@customElement('tanstack-form-demo')
+export class TanStackFormDemo extends LitElement {
+  #form = new TanStackFormController(this, {
+    defaultValues: defaultPeople,
+    onSubmit({ value }) {
+      alert(JSON.stringify(value))
+    },
+  })
+
+  render() {
+    return html`
+      <div>
+        <form
+          @submit=${(e: Event) => {
+            e.preventDefault()
+            e.stopPropagation()
+            this.#form.api.handleSubmit()
+          }}
+        >
+          ${this.#form.field(
+            {
+              name: 'people',
+            },
+            (peopleField) => {
+              return html`
+                <div>
+                  ${repeat(
+                    peopleField.state.value,
+                    (_, index) => index,
+                    (_, index) => {
+                      return html`
+                        ${this.#form.field(
+                          {
+                            name: `people[${index}].name`,
+                          },
+                          (field) => {
+                            return html`
+                              <div>
+                                <div>
+                                  <label>
+                                    <div>Name for person ${index}</div>
+                                    <input
+                                      type="text"
+                                      placeholder="First Name"
+                                      .value="${field.state.value}"
+                                      @blur="${() => field.handleBlur()}"
+                                      @input="${(e: Event) => {
+                                        const target = e.target as HTMLInputElement
+                                        field.handleChange(target.value)
+                                      }}"
+                                    />
+                                  </label>
+                                </div>
+                              </div>
+                            `
+                          },
+                        )}
+                      `
+                    },
+                  )}
+
+                  <button
+                    type="button"
+                    @click=${() => {
+                      peopleField.pushValue({
+                        name: '',
+                        age: 0,
+                      })
+                    }}
+                  >
+                    Add person
+                  </button>
+                </div>
+              `
+            },
+          )}
+
+          <button type="submit" ?disabled=${this.#form.api.state.isSubmitting}>
+            ${this.#form.api.state.isSubmitting ? '...' : 'Submit'}
+          </button>
+        </form>
+      </div>
+    `
+  }
+}
+```
+
+## Array Field Methods
+
+The field API provides several methods for managing arrays:
+
+### pushValue(item)
+
+Add an item to the end of the array:
+
+```ts
+field.pushValue({ name: '', age: 0 })
+```
+
+### removeValue(index)
+
+Remove an item at a specific index:
+
+```ts
+field.removeValue(2) // Remove the third item
+```
+
+### insertValue(index, item)
+
+Insert an item at a specific position:
+
+```ts
+field.insertValue(1, { name: 'John', age: 30 })
+```
+
+### replaceValue(index, item)
+
+Replace an item at a specific index:
+
+```ts
+field.replaceValue(0, { name: 'Jane', age: 25 })
+```
+
+### swapValues(indexA, indexB)
+
+Swap two items in the array:
+
+```ts
+field.swapValues(0, 2) // Swap first and third items
+```
+
+### moveValue(from, to)
+
+Move an item from one index to another:
+
+```ts
+field.moveValue(0, 3) // Move first item to fourth position
+```
+
+## Array with Remove Buttons
+
+Add remove buttons to let users delete individual items:
+
+```ts
+${repeat(
+  peopleField.state.value,
+  (_, index) => index,
+  (_, index) => {
+    return html`
+      <div>
+        ${this.#form.field(
+          { name: `people[${index}].name` },
+          (field) => html`
+            <input
+              type="text"
+              .value="${field.state.value}"
+              @input="${(e: Event) => {
+                const target = e.target as HTMLInputElement
+                field.handleChange(target.value)
+              }}"
+            />
+          `,
+        )}
+        <button
+          type="button"
+          @click=${() => peopleField.removeValue(index)}
+        >
+          Remove
+        </button>
+      </div>
+    `
+  },
+)}
+```
+
+## Validating Array Fields
+
+You can validate both the array itself and individual array items:
+
+### Array-Level Validation
+
+Validate the entire array:
+
+```ts
+${this.#form.field(
+  {
+    name: 'people',
+    validators: {
+      onChange: ({ value }) =>
+        value.length < 1 ? 'At least one person is required' : undefined,
+    },
+  },
+  (field) => {
+    return html`
+      <!-- ... -->
+      ${!field.state.meta.isValid
+        ? html`<em>${field.state.meta.errors.join(', ')}</em>`
+        : nothing}
+    `
+  },
+)}
+```
+
+### Item-Level Validation
+
+Validate individual array items:
+
+```ts
+${this.#form.field(
+  {
+    name: `people[${index}].name`,
+    validators: {
+      onChange: ({ value }) =>
+        value.length < 2 ? 'Name must be at least 2 characters' : undefined,
+    },
+  },
+  (field) => {
+    return html`
+      <input
+        type="text"
+        .value="${field.state.value}"
+        @input="${(e: Event) => {
+          const target = e.target as HTMLInputElement
+          field.handleChange(target.value)
+        }}"
+      />
+      ${!field.state.meta.isValid
+        ? html`<em>${field.state.meta.errors[0]}</em>`
+        : nothing}
+    `
+  },
+)}
+```
+
+## Complex Nested Objects
+
+Arrays can contain complex objects with multiple fields:
+
+```ts
+interface Person {
+  firstName: string
+  lastName: string
+  age: number
+  email: string
+}
+
+#form = new TanStackFormController(this, {
+  defaultValues: {
+    people: [] as Array<Person>,
+  },
+})
+
+// Access nested fields
+${this.#form.field({ name: `people[${index}].firstName` }, (field) => html`...`)}
+${this.#form.field({ name: `people[${index}].lastName` }, (field) => html`...`)}
+${this.#form.field({ name: `people[${index}].age` }, (field) => html`...`)}
+${this.#form.field({ name: `people[${index}].email` }, (field) => html`...`)}
+```
+
+## Using the repeat Directive
+
+Lit's `repeat` directive is essential for efficiently rendering array items. The second parameter provides a key for tracking items:
+
+```ts
+import { repeat } from 'lit/directives/repeat.js'
+
+${repeat(
+  peopleField.state.value,
+  (person, index) => index,  // Use index as key
+  (person, index) => {
+    return html`<!-- Render item -->`
+  },
+)}
+```
+
+For better performance with reordering, use unique IDs as keys:
+
+```ts
+interface Person {
+  id: string
+  name: string
+}
+
+${repeat(
+  peopleField.state.value,
+  (person) => person.id,  // Use unique ID as key
+  (person, index) => {
+    return html`<!-- Render item -->`
+  },
+)}
+```
+
+## Next Steps
+
+- Learn more about [Form Validation](/lit/validation) for arrays
+- Check the [API Reference](/api/lit/form-controller) for all field methods
+- Explore [Basic Concepts](/lit/basic-concepts) for deeper understanding

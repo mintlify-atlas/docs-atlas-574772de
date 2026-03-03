@@ -1,0 +1,417 @@
+---
+title: Design Philosophy
+description: The core principles that guide TanStack Form development
+---
+
+Every well-established project should have a philosophy that guides its development. Without a core philosophy, development can languish in endless decision-making and have weaker APIs as a result.
+
+This document outlines the core principles that drive the development and feature-set of TanStack Form.
+
+## Upgrading Unified APIs
+
+APIs come with tradeoffs. As a result, it can be tempting to make each set of tradeoffs available to the user through different APIs. However, this can lead to a fragmented API that is harder to learn and use.
+
+TanStack Form chooses to provide a **single, unified API** for each concept rather than multiple competing approaches. While this may mean a higher learning curve initially, it means that you don't have to question which API to use internally or have higher cognitive overhead when switching between APIs.
+
+<Note>
+  Learning one powerful, unified API is better than juggling multiple simpler APIs with different tradeoffs. This reduces decision fatigue and makes the codebase more maintainable.
+</Note>
+
+### Example: Validation
+
+Instead of having separate APIs for simple and complex validation, TanStack Form provides one validation system that scales from basic to advanced use cases:
+
+```tsx
+// Simple validation
+<form.Field
+  name="email"
+  validators={{
+    onChange: ({ value }) =>
+      !value.includes('@') ? 'Invalid email' : undefined,
+  }}
+/>
+
+// Complex validation with async, debouncing, and multiple events
+<form.Field
+  name="username"
+  validators={{
+    onChange: ({ value }) =>
+      value.length < 3 ? 'Too short' : undefined,
+    onChangeAsyncDebounceMs: 500,
+    onChangeAsync: async ({ value }) => {
+      const exists = await checkUsernameExists(value)
+      return exists ? 'Username taken' : undefined
+    },
+    onBlur: ({ value }) =>
+      !value ? 'Username is required' : undefined,
+  }}
+/>
+```
+
+The same API handles both cases, so you don't need to learn different patterns as your requirements grow.
+
+## Forms Need Flexibility
+
+TanStack Form is designed to be flexible and customizable. While many forms may conform to similar patterns, there are always exceptions—especially when forms are a core component of your application.
+
+As a result, TanStack Form supports multiple methods for validation:
+
+### Timing Customizations
+
+Validate at different points in the user's journey:
+
+- **On mount** - Validate immediately when the field appears
+- **On change** - Validate as the user types
+- **On blur** - Validate when the user leaves the field
+- **On submit** - Validate only when submitting the form
+
+```tsx
+const form = useForm({
+  defaultValues: { email: '' },
+})
+
+<form.Field
+  name="email"
+  validators={{
+    onMount: ({ value }) => !value ? 'Email required' : undefined,
+    onChange: ({ value }) => !value.includes('@') ? 'Invalid' : undefined,
+    onBlur: ({ value }) => validateEmailFormat(value),
+    onSubmit: async ({ value }) => await checkEmailExists(value),
+  }}
+/>
+```
+
+### Validation Strategies
+
+Choose how to validate your form:
+
+- **Individual fields** - Each field validates independently
+- **Form-level validation** - Validate across multiple fields
+- **Conditional validation** - Validate based on other field values
+
+```tsx
+// Form-level validation
+const form = useForm({
+  defaultValues: { password: '', confirmPassword: '' },
+  validators: {
+    onChange: ({ value }) => {
+      if (value.password !== value.confirmPassword) {
+        return {
+          form: 'Passwords do not match',
+          fields: {
+            confirmPassword: 'Must match password',
+          },
+        }
+      }
+      return undefined
+    },
+  },
+})
+```
+
+### Custom Validation Logic
+
+Bring your own validation library or write custom logic:
+
+```tsx
+import { z } from 'zod'
+import { zodValidator } from '@tanstack/zod-form-adapter'
+
+const userSchema = z.object({
+  name: z.string().min(3),
+  email: z.string().email(),
+  age: z.number().min(18),
+})
+
+const form = useForm({
+  defaultValues: { name: '', email: '', age: 0 },
+  validatorAdapter: zodValidator(),
+  validators: {
+    onChange: userSchema,
+  },
+})
+```
+
+<Tip>
+  TanStack Form integrates seamlessly with popular validation libraries like Zod, Yup, and Valibot through adapter packages.
+</Tip>
+
+### Custom Error Messages
+
+Return any type of error from validators:
+
+```tsx
+<form.Field
+  name="username"
+  validators={{
+    onChange: ({ value }) => {
+      if (!value) return 'Username is required'
+      if (value.length < 3) return 'Too short'
+      if (!/^[a-zA-Z0-9_]+$/.test(value)) {
+        return {
+          message: 'Invalid characters',
+          suggestion: 'Use only letters, numbers, and underscores',
+        }
+      }
+      return undefined
+    },
+  }}
+/>
+```
+
+### Async Validation
+
+Perform server-side validation with built-in debouncing and cancellation:
+
+```tsx
+<form.Field
+  name="email"
+  validators={{
+    onChangeAsyncDebounceMs: 500,
+    onChangeAsync: async ({ value, signal }) => {
+      try {
+        const response = await fetch(`/api/check-email?email=${value}`, {
+          signal, // Automatic request cancellation
+        })
+        const data = await response.json()
+        return data.exists ? 'Email already registered' : undefined
+      } catch (error) {
+        if (error.name === 'AbortError') return undefined
+        return 'Failed to validate email'
+      }
+    },
+  }}
+/>
+```
+
+## Controlled is Cool
+
+In a world where controlled vs. uncontrolled inputs are a hot topic, TanStack Form is firmly in the **controlled** camp.
+
+This comes with a number of advantages:
+
+### Predictability
+
+You can predict the state of your form at any point in time. There's no hidden state in the DOM—everything is in your JavaScript state:
+
+```tsx
+const form = useForm({ defaultValues: { name: 'John' } })
+
+// The form state is always accessible
+console.log(form.state.values.name) // 'John'
+```
+
+### Easier Testing
+
+You can easily test your forms by passing in values and asserting on the output:
+
+```tsx
+import { FormApi } from '@tanstack/form-core'
+
+test('validates email', () => {
+  const form = new FormApi({
+    defaultValues: { email: '' },
+  })
+
+  form.setFieldValue('email', 'invalid')
+  expect(form.getFieldMeta('email')?.errors).toBeTruthy()
+
+  form.setFieldValue('email', 'valid@example.com')
+  expect(form.getFieldMeta('email')?.errors).toBeFalsy()
+})
+```
+
+### Non-DOM Support
+
+You can use TanStack Form with React Native, Three.js framework adapters, or any other framework renderer:
+
+```tsx
+// React Native example
+import { useForm } from '@tanstack/react-form'
+import { TextInput } from 'react-native'
+
+function MyForm() {
+  const form = useForm({
+    defaultValues: { name: '' },
+  })
+
+  return (
+    <form.Field name="name">
+      {(field) => (
+        <TextInput
+          value={field.state.value}
+          onChangeText={field.handleChange}
+          onBlur={field.handleBlur}
+        />
+      )}
+    </form.Field>
+  )
+}
+```
+
+### Enhanced Conditional Logic
+
+You can easily conditionally show/hide fields based on the form state:
+
+```tsx
+const form = useForm({
+  defaultValues: {
+    hasAccount: false,
+    accountType: '',
+  },
+})
+
+<form.Field name="hasAccount" />
+{form.state.values.hasAccount && (
+  <form.Field name="accountType" />
+)}
+```
+
+### Debugging
+
+You can easily log the form state to the console to debug issues:
+
+```tsx
+const form = useForm({
+  defaultValues: { name: '' },
+})
+
+// Debug form state
+console.log({
+  values: form.state.values,
+  errors: form.state.errors,
+  touched: form.state.fieldMeta,
+})
+```
+
+<Note>
+  TanStack Form also provides official DevTools that give you a visual interface for inspecting form state in real-time.
+</Note>
+
+## Generics Are Grim
+
+You should **never need to pass a generic** or use an internal type when leveraging TanStack Form. This is because we've designed the library to infer everything from runtime defaults.
+
+When writing sufficiently correct TanStack Form code, you should not be able to distinguish between JavaScript usage and TypeScript usage, with the exception of any type casts you might do of runtime values.
+
+### Avoid This
+
+❌ Don't pass generics explicitly:
+
+```tsx
+// Bad: Manually passing generics
+interface MyForm {
+  name: string
+  age: number
+}
+
+const form = useForm<MyForm>({
+  defaultValues: { name: '', age: 0 },
+})
+```
+
+### Do This Instead
+
+✅ Let TypeScript infer types from your default values:
+
+```tsx
+// Good: Types inferred automatically
+interface Person {
+  name: string
+  age: number
+}
+
+const defaultPerson: Person = { name: 'Bill Luo', age: 24 }
+
+const form = useForm({
+  defaultValues: defaultPerson,
+})
+
+// TypeScript knows the type automatically!
+form.setFieldValue('name', 'John') // ✓ Type-safe
+form.setFieldValue('invalid', 'value') // ✗ Type error
+```
+
+This approach means:
+
+- **Less boilerplate** - No need to repeat type information
+- **Single source of truth** - Your default values define the shape
+- **Better developer experience** - Works the same in JS and TS
+- **Automatic updates** - Change your defaults, types update automatically
+
+<Tip>
+  Define your form shape once in `defaultValues`, and let TypeScript infer everything else. This reduces maintenance and ensures your types always match your runtime values.
+</Tip>
+
+## Libraries Are Liberating
+
+One of the main objectives of TanStack Form is that **you should be wrapping it** into your own component system or design system.
+
+To support this, we have a number of utilities that make it easier to build your own components and customized hooks:
+
+```tsx
+import { createFormFactory } from '@tanstack/react-form'
+
+// Create a form factory with your defaults
+const formFactory = createFormFactory({
+  defaultValues: {} as MyFormShape,
+  // Add your common configuration
+})
+
+// Export pre-configured hooks and components
+export const useAppForm = formFactory.useForm
+export const AppField = formFactory.Field
+```
+
+Without doing so, you're adding substantially more boilerplate to your apps and making your forms less consistent and user-friendly.
+
+### Building a Form Component Library
+
+```tsx
+// components/forms/TextField.tsx
+import { useField } from '@tanstack/react-form'
+
+export function TextField({ form, name, label, ...props }) {
+  return (
+    <form.Field name={name}>
+      {(field) => (
+        <div className="form-group">
+          <label htmlFor={field.name}>{label}</label>
+          <input
+            id={field.name}
+            value={field.state.value}
+            onChange={(e) => field.handleChange(e.target.value)}
+            onBlur={field.handleBlur}
+            className={field.state.meta.errors ? 'error' : ''}
+            {...props}
+          />
+          {field.state.meta.errors && (
+            <span className="error-message">
+              {field.state.meta.errors.join(', ')}
+            </span>
+          )}
+        </div>
+      )}
+    </form.Field>
+  )
+}
+
+// Usage
+<TextField form={form} name="email" label="Email Address" />
+```
+
+<Note>
+  Building a component library around TanStack Form ensures consistency across your application and makes it easier to implement design system patterns.
+</Note>
+
+## Conclusion
+
+These principles guide every decision we make in TanStack Form:
+
+1. **Unified APIs** - One powerful API is better than many fragmented ones
+2. **Flexibility** - Support diverse use cases without compromise
+3. **Controlled inputs** - Predictable, testable, and framework-agnostic
+4. **Type inference** - No generics needed, types flow from values
+5. **Composability** - Build your own abstractions on top
+
+By following these principles, TanStack Form provides a robust foundation for building forms that scale from simple to complex use cases.

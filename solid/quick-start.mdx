@@ -1,0 +1,206 @@
+---
+title: Quick Start
+description: Get started with TanStack Form in Solid
+---
+
+The bare minimum to get started with TanStack Form is to create a form and add a field. This guide will walk you through creating your first form in Solid.
+
+## Installation
+
+<Steps>
+
+<Step title="Install the package">
+
+Install `@tanstack/solid-form` using your package manager:
+
+```bash
+npm install @tanstack/solid-form
+# or
+pnpm add @tanstack/solid-form
+# or
+yarn add @tanstack/solid-form
+```
+
+</Step>
+
+<Step title="Create your first form">
+
+Import `createForm` and set up a basic form with default values and a submit handler:
+
+```tsx
+import { createForm } from '@tanstack/solid-form'
+
+function App() {
+  const form = createForm(() => ({
+    defaultValues: {
+      fullName: '',
+    },
+    onSubmit: async ({ value }) => {
+      // Do something with form data
+      console.log(value)
+    },
+  }))
+
+  return (
+    <div>
+      <h1>Simple Form Example</h1>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          form.handleSubmit()
+        }}
+      >
+        <div>
+          <form.Field
+            name="fullName"
+            children={(field) => (
+              <input
+                name={field().name}
+                value={field().state.value}
+                onBlur={field().handleBlur}
+                onInput={(e) => field().handleChange(e.target.value)}
+              />
+            )}
+          />
+        </div>
+        <button type="submit">Submit</button>
+      </form>
+    </div>
+  )
+}
+```
+
+</Step>
+
+<Step title="Understand the key concepts">
+
+- **`createForm`**: A Solid primitive that creates a reactive form instance. It takes a function that returns form configuration.
+- **`form.Field`**: A component for creating type-safe form fields. It uses a render prop pattern with `children`.
+- **`field().state.value`**: Access the current field value through the reactive signal.
+- **`field().handleChange`**: Update the field value when the user types.
+- **`form.handleSubmit()`**: Submit the form and trigger the `onSubmit` handler.
+
+</Step>
+
+</Steps>
+
+## Complete Example with Validation
+
+Here's a more complete example with validation from the TanStack Form repository:
+
+```tsx
+import { createForm } from '@tanstack/solid-form'
+import type { AnyFieldApi } from '@tanstack/solid-form'
+
+interface FieldInfoProps {
+  field: AnyFieldApi
+}
+
+function FieldInfo(props: FieldInfoProps) {
+  return (
+    <>
+      {props.field.state.meta.isTouched && !props.field.state.meta.isValid ? (
+        <em>{props.field.state.meta.errors.join(',')}</em>
+      ) : null}
+      {props.field.state.meta.isValidating ? 'Validating...' : null}
+    </>
+  )
+}
+
+function App() {
+  const form = createForm(() => ({
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+    },
+    onSubmit: async ({ value }) => {
+      console.log(value)
+    },
+  }))
+
+  return (
+    <div>
+      <h1>Simple Form Example</h1>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          form.handleSubmit()
+        }}
+      >
+        <div>
+          <form.Field
+            name="firstName"
+            validators={{
+              onChange: ({ value }) =>
+                !value
+                  ? 'A first name is required'
+                  : value.length < 3
+                    ? 'First name must be at least 3 characters'
+                    : undefined,
+              onChangeAsyncDebounceMs: 500,
+              onChangeAsync: async ({ value }) => {
+                await new Promise((resolve) => setTimeout(resolve, 1000))
+                return (
+                  value.includes('error') && 'No "error" allowed in first name'
+                )
+              },
+            }}
+            children={(field) => (
+              <>
+                <label for={field().name}>First Name:</label>
+                <input
+                  id={field().name}
+                  name={field().name}
+                  value={field().state.value}
+                  onBlur={field().handleBlur}
+                  onInput={(e) => field().handleChange(e.target.value)}
+                />
+                <FieldInfo field={field()} />
+              </>
+            )}
+          />
+        </div>
+        <div>
+          <form.Field
+            name="lastName"
+            children={(field) => (
+              <>
+                <label for={field().name}>Last Name:</label>
+                <input
+                  id={field().name}
+                  name={field().name}
+                  value={field().state.value}
+                  onBlur={field().handleBlur}
+                  onInput={(e) => field().handleChange(e.target.value)}
+                />
+                <FieldInfo field={field()} />
+              </>
+            )}
+          />
+        </div>
+        <form.Subscribe
+          selector={(state) => ({
+            canSubmit: state.canSubmit,
+            isSubmitting: state.isSubmitting,
+          })}
+          children={(state) => (
+            <button type="submit" disabled={!state().canSubmit}>
+              {state().isSubmitting ? '...' : 'Submit'}
+            </button>
+          )}
+        />
+      </form>
+    </div>
+  )
+}
+```
+
+## Next Steps
+
+Now that you have a basic form working, explore these topics:
+
+- [Basic Concepts](/solid/basic-concepts) - Learn about form instances, fields, and state management
+- [Validation](/solid/validation) - Add validation rules to your forms
+- [Arrays](/solid/arrays) - Work with dynamic lists of fields

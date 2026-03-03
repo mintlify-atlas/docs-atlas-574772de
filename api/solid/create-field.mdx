@@ -1,0 +1,275 @@
+---
+title: createField
+description: API reference for the createField function in Solid
+---
+
+The `createField` function creates and manages an individual form field in Solid applications.
+
+## Import
+
+```typescript
+import { createField } from '@tanstack/solid-form'
+```
+
+## Signature
+
+```typescript
+function createField<
+  TParentData,
+  TName extends DeepKeys<TParentData>,
+  TData extends DeepValue<TParentData, TName>,
+  // ... additional type parameters
+>(
+  opts: () => CreateFieldOptions<TParentData, TName, TData, ...>
+): () => FieldApi<TParentData, TName, TData, ...> & SolidFieldApi<...>
+```
+
+## Parameters
+
+<ParamField path="opts" type="() => CreateFieldOptions<TParentData, TName, TData>" required>
+  A function that returns the configuration object for the field. The function is reactive and will update the field when dependencies change.
+
+  <ParamField path="opts().form" type="FormApi<TParentData>" required>
+    The parent form API instance.
+  </ParamField>
+
+  <ParamField path="opts().name" type="TName" required>
+    The field name as a path string (e.g., 'user.firstName' or 'items[0].name').
+  </ParamField>
+
+  <ParamField path="opts().defaultValue" type="TData">
+    The default value for the field.
+  </ParamField>
+
+  <ParamField path="opts().validators" type="FieldValidators<TParentData, TName, TData>">
+    Validation functions for the field.
+
+    <ParamField path="opts().validators.onChange" type="FieldValidateOrFn<TParentData, TName, TData>">
+      Validator that runs on every change.
+    </ParamField>
+
+    <ParamField path="opts().validators.onChangeAsync" type="FieldAsyncValidateOrFn<TParentData, TName, TData>">
+      Async validator that runs on change.
+    </ParamField>
+
+    <ParamField path="opts().validators.onBlur" type="FieldValidateOrFn<TParentData, TName, TData>">
+      Validator that runs when the field loses focus.
+    </ParamField>
+
+    <ParamField path="opts().validators.onMount" type="FieldValidateOrFn<TParentData, TName, TData>">
+      Validator that runs when the field is mounted.
+    </ParamField>
+  </ParamField>
+
+  <ParamField path="opts().asyncDebounceMs" type="number">
+    Debounce time in milliseconds for async validation. Default is 500ms.
+  </ParamField>
+
+  <ParamField path="opts().asyncAlways" type="boolean">
+    If true, async validation runs even if sync validation fails.
+  </ParamField>
+</ParamField>
+
+## Return Value
+
+<ResponseField name="field" type="() => FieldApi<TParentData, TName, TData> & SolidFieldApi">
+  An accessor function that returns the field API instance.
+
+  <ResponseField name="field().name" type="TName">
+    The field name.
+  </ResponseField>
+
+  <ResponseField name="field().state" type="FieldState<TData>">
+    The current field state.
+
+    <ResponseField name="field().state.value" type="TData">
+      The current field value.
+    </ResponseField>
+
+    <ResponseField name="field().state.meta" type="FieldMeta">
+      Field metadata.
+
+      <ResponseField name="field().state.meta.errors" type="string[]">
+        Current validation errors.
+      </ResponseField>
+
+      <ResponseField name="field().state.meta.isTouched" type="boolean">
+        Whether the field has been touched.
+      </ResponseField>
+
+      <ResponseField name="field().state.meta.isDirty" type="boolean">
+        Whether the field value has changed.
+      </ResponseField>
+
+      <ResponseField name="field().state.meta.isValidating" type="boolean">
+        Whether async validation is in progress.
+      </ResponseField>
+    </ResponseField>
+  </ResponseField>
+
+  <ResponseField name="field().handleChange" type="(value: TData) => void">
+    Update the field value.
+  </ResponseField>
+
+  <ResponseField name="field().handleBlur" type="() => void">
+    Mark the field as touched.
+  </ResponseField>
+
+  <ResponseField name="field().pushValue" type="(value: TData extends Array<infer U> ? U : never) => void">
+    Add a value to an array field.
+  </ResponseField>
+
+  <ResponseField name="field().removeValue" type="(index: number) => void">
+    Remove a value from an array field.
+  </ResponseField>
+
+  <ResponseField name="field().Field" type="FieldComponent">
+    A nested Field component for creating sub-fields.
+  </ResponseField>
+</ResponseField>
+
+## Usage Example
+
+### Basic Field
+
+```tsx
+import { createForm, createField } from '@tanstack/solid-form'
+import { Show } from 'solid-js'
+
+interface FormData {
+  email: string
+}
+
+function App() {
+  const form = createForm<FormData>(() => ({
+    defaultValues: {
+      email: '',
+    },
+    onSubmit: ({ value }) => {
+      console.log('Email:', value.email)
+    },
+  }))
+
+  const emailField = form.createField(() => ({
+    name: 'email',
+    validators: {
+      onChange: ({ value }) => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        return !emailRegex.test(value) ? 'Invalid email address' : undefined
+      },
+    },
+  }))
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        form.handleSubmit()
+      }}
+    >
+      <div>
+        <label for={emailField().name}>Email:</label>
+        <input
+          id={emailField().name}
+          name={emailField().name}
+          value={emailField().state.value}
+          onInput={(e) => emailField().handleChange(e.currentTarget.value)}
+          onBlur={() => emailField().handleBlur()}
+        />
+        <Show when={emailField().state.meta.isTouched && emailField().state.meta.errors.length > 0}>
+          <div style={{ color: 'red' }}>{emailField().state.meta.errors[0]}</div>
+        </Show>
+      </div>
+      <button type="submit">Submit</button>
+    </form>
+  )
+}
+```
+
+### Field with Async Validation
+
+```tsx
+import { createForm } from '@tanstack/solid-form'
+import { Show } from 'solid-js'
+
+function App() {
+  const form = createForm(() => ({
+    defaultValues: {
+      username: '',
+    },
+    onSubmit: ({ value }) => {
+      console.log(value)
+    },
+  }))
+
+  const usernameField = form.createField(() => ({
+    name: 'username',
+    validators: {
+      onChange: ({ value }) =>
+        value.length < 3 ? 'Username must be at least 3 characters' : undefined,
+      onChangeAsync: async ({ value }) => {
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+        return value === 'taken' ? 'Username already taken' : undefined
+      },
+      onChangeAsyncDebounceMs: 500,
+    },
+  }))
+
+  return (
+    <div>
+      <input
+        value={usernameField().state.value}
+        onInput={(e) => usernameField().handleChange(e.currentTarget.value)}
+        onBlur={() => usernameField().handleBlur()}
+      />
+      <Show when={usernameField().state.meta.isValidating}>
+        <p>Validating...</p>
+      </Show>
+      <Show when={usernameField().state.meta.errors.length > 0}>
+        <div style={{ color: 'red' }}>{usernameField().state.meta.errors[0]}</div>
+      </Show>
+    </div>
+  )
+}
+```
+
+### Nested Field
+
+```tsx
+import { createForm } from '@tanstack/solid-form'
+
+function App() {
+  const form = createForm(() => ({
+    defaultValues: {
+      items: [] as Array<{ name: string }>,
+    },
+    onSubmit: ({ value }) => {
+      console.log(value)
+    },
+  }))
+
+  const itemsField = form.createField(() => ({
+    name: 'items',
+  }))
+
+  return (
+    <div>
+      {/* Use itemsField().Field to create nested fields */}
+      <itemsField.Field name="items[0].name">
+        {(field) => (
+          <input
+            value={field().state.value}
+            onInput={(e) => field().handleChange(e.currentTarget.value)}
+          />
+        )}
+      </itemsField.Field>
+    </div>
+  )
+}
+```
+
+## See Also
+
+- [createForm](/api/solid/create-form) - Create and manage forms
+- [Field Component](/api/solid/field-component) - Render form fields declaratively
+- [FieldApi](/api/core/field-api) - Core field API documentation

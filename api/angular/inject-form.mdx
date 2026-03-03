@@ -1,0 +1,249 @@
+---
+title: injectForm
+description: API reference for the injectForm function in Angular
+---
+
+The `injectForm` function creates and manages forms in Angular applications using TanStack Form.
+
+## Import
+
+```typescript
+import { injectForm } from '@tanstack/angular-form'
+```
+
+## Signature
+
+```typescript
+function injectForm<
+  TFormData,
+  TOnMount extends undefined | FormValidateOrFn<TFormData>,
+  TOnChange extends undefined | FormValidateOrFn<TFormData>,
+  TOnChangeAsync extends undefined | FormAsyncValidateOrFn<TFormData>,
+  TOnBlur extends undefined | FormValidateOrFn<TFormData>,
+  TOnBlurAsync extends undefined | FormAsyncValidateOrFn<TFormData>,
+  TOnSubmit extends undefined | FormValidateOrFn<TFormData>,
+  TOnSubmitAsync extends undefined | FormAsyncValidateOrFn<TFormData>,
+  TOnDynamic extends undefined | FormValidateOrFn<TFormData>,
+  TOnDynamicAsync extends undefined | FormAsyncValidateOrFn<TFormData>,
+  TOnServer extends undefined | FormAsyncValidateOrFn<TFormData>,
+  TSubmitMeta,
+>(
+  opts?: FormOptions<
+    TFormData,
+    TOnMount,
+    TOnChange,
+    TOnChangeAsync,
+    TOnBlur,
+    TOnBlurAsync,
+    TOnSubmit,
+    TOnSubmitAsync,
+    TOnDynamic,
+    TOnDynamicAsync,
+    TOnServer,
+    TSubmitMeta
+  >,
+): FormApi<...>
+```
+
+## Parameters
+
+<ParamField path="opts" type="FormOptions<TFormData>">
+  Optional configuration object for the form.
+
+  <ParamField path="opts.defaultValues" type="TFormData">
+    Initial values for the form fields.
+  </ParamField>
+
+  <ParamField path="opts.onSubmit" type="(values: FormSubmitData<TFormData>) => void | Promise<void>">
+    Callback function called when the form is submitted.
+  </ParamField>
+
+  <ParamField path="opts.validators" type="FormValidators<TFormData>">
+    Validation functions for the form.
+
+    <ParamField path="opts.validators.onChange" type="FormValidateOrFn<TFormData>">
+      Validator that runs on every change.
+    </ParamField>
+
+    <ParamField path="opts.validators.onChangeAsync" type="FormAsyncValidateOrFn<TFormData>">
+      Async validator that runs on change with debouncing.
+    </ParamField>
+
+    <ParamField path="opts.validators.onBlur" type="FormValidateOrFn<TFormData>">
+      Validator that runs when the form loses focus.
+    </ParamField>
+
+    <ParamField path="opts.validators.onMount" type="FormValidateOrFn<TFormData>">
+      Validator that runs when the form is mounted.
+    </ParamField>
+  </ParamField>
+</ParamField>
+
+## Return Value
+
+<ResponseField name="api" type="FormApi<TFormData>">
+  The form API instance.
+
+  <ResponseField name="handleSubmit" type="() => void">
+    Function to trigger form submission.
+  </ResponseField>
+
+  <ResponseField name="reset" type="() => void">
+    Function to reset the form to its initial state.
+  </ResponseField>
+
+  <ResponseField name="state" type="FormState<TFormData>">
+    Current state of the form including values, errors, and validation status.
+  </ResponseField>
+
+  <ResponseField name="store" type="Store<FormState<TFormData>>">
+    The underlying store for the form state.
+  </ResponseField>
+
+  <ResponseField name="mount" type="() => () => void">
+    Mount the form and return a cleanup function.
+  </ResponseField>
+</ResponseField>
+
+## Usage Example
+
+### Basic Form
+
+```typescript
+import { Component } from '@angular/core'
+import { injectForm, injectStore, TanStackField } from '@tanstack/angular-form'
+import type { FieldValidateFn } from '@tanstack/angular-form'
+
+interface FormData {
+  firstName: string
+  lastName: string
+}
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [TanStackField],
+  template: `
+    <form (submit)="handleSubmit($event)">
+      <div>
+        <ng-container
+          [tanstackField]="form"
+          name="firstName"
+          [validators]="{ onChange: firstNameValidator }"
+          #firstName="field"
+        >
+          <label [for]="firstName.api.name">First Name:</label>
+          <input
+            [id]="firstName.api.name"
+            [name]="firstName.api.name"
+            [value]="firstName.api.state.value"
+            (blur)="firstName.api.handleBlur()"
+            (input)="firstName.api.handleChange($any($event).target.value)"
+          />
+          @if (firstName.api.state.meta.isTouched) {
+            @for (error of firstName.api.state.meta.errors; track $index) {
+              <div style="color: red">
+                {{ error }}
+              </div>
+            }
+          }
+        </ng-container>
+      </div>
+
+      <button type="submit" [disabled]="!canSubmit()">
+        {{ isSubmitting() ? '...' : 'Submit' }}
+      </button>
+    </form>
+  `,
+})
+export class AppComponent {
+  firstNameValidator: FieldValidateFn<FormData, string, any> = ({ value }) =>
+    !value
+      ? 'A first name is required'
+      : value.length < 3
+        ? 'First name must be at least 3 characters'
+        : undefined
+
+  form = injectForm<FormData>({
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+    },
+    onSubmit({ value }) {
+      console.log('Form submitted:', value)
+    },
+  })
+
+  canSubmit = injectStore(this.form, (state) => state.canSubmit)
+  isSubmitting = injectStore(this.form, (state) => state.isSubmitting)
+
+  handleSubmit(event: SubmitEvent) {
+    event.preventDefault()
+    event.stopPropagation()
+    this.form.handleSubmit()
+  }
+}
+```
+
+### Form with Async Validation
+
+```typescript
+import { Component } from '@angular/core'
+import { injectForm, TanStackField } from '@tanstack/angular-form'
+import type { FieldValidateAsyncFn } from '@tanstack/angular-form'
+
+@Component({
+  selector: 'app-form',
+  standalone: true,
+  imports: [TanStackField],
+  template: `
+    <form (submit)="handleSubmit($event)">
+      <ng-container
+        [tanstackField]="form"
+        name="username"
+        [validators]="{
+          onChangeAsync: usernameAsyncValidator,
+          onChangeAsyncDebounceMs: 500,
+        }"
+        #username="field"
+      >
+        <input
+          [value]="username.api.state.value"
+          (input)="username.api.handleChange($any($event).target.value)"
+        />
+        @if (username.api.state.meta.isValidating) {
+          <p>Validating...</p>
+        }
+      </ng-container>
+    </form>
+  `,
+})
+export class FormComponent {
+  usernameAsyncValidator: FieldValidateAsyncFn<any, string, any> = async ({
+    value,
+  }) => {
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    return value === 'taken' ? 'Username already taken' : undefined
+  }
+
+  form = injectForm({
+    defaultValues: {
+      username: '',
+    },
+    onSubmit({ value }) {
+      console.log(value)
+    },
+  })
+
+  handleSubmit(event: SubmitEvent) {
+    event.preventDefault()
+    this.form.handleSubmit()
+  }
+}
+```
+
+## See Also
+
+- [TanStackField](/api/angular/tanstack-field) - Angular directive for form fields
+- [FormApi](/api/core/form-api) - Core form API documentation
+- [injectStore](https://tanstack.com/store/latest/docs/framework/angular/quick-start) - Subscribe to form state

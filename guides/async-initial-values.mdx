@@ -1,0 +1,299 @@
+---
+title: Async Initial Values
+description: Learn how to load initial form values from asynchronous data sources like APIs
+---
+
+When you need to fetch data from an API and use it as the initial value of a form, there are several challenges to consider:
+
+- Showing loading states while data is being fetched
+- Handling errors gracefully
+- Caching data to avoid unnecessary refetches
+- Managing form state during loading
+
+While you could implement these features from scratch, TanStack Form works seamlessly with [TanStack Query](https://tanstack.com/query) to handle all of these concerns.
+
+## Basic Usage
+
+Here's how to combine TanStack Form with TanStack Query to load async initial values:
+
+```tsx
+import { useForm } from '@tanstack/react-form'
+import { useQuery } from '@tanstack/react-query'
+
+export default function App() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['userData'],
+    queryFn: async () => {
+      const response = await fetch('/api/user')
+      return response.json()
+    },
+  })
+
+  const form = useForm({
+    defaultValues: {
+      firstName: data?.firstName ?? '',
+      lastName: data?.lastName ?? '',
+      email: data?.email ?? '',
+    },
+    onSubmit: async ({ value }) => {
+      // Save the updated data
+      await fetch('/api/user', {
+        method: 'PUT',
+        body: JSON.stringify(value),
+      })
+    },
+  })
+
+  if (isLoading) return <p>Loading...</p>
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        form.handleSubmit()
+      }}
+    >
+      {/* Form fields */}
+    </form>
+  )
+}
+```
+
+<Tip>
+  Use the nullish coalescing operator (`??`) to provide fallback values while data is loading. This prevents controlled/uncontrolled input warnings.
+</Tip>
+
+## Complete Example with Mutations
+
+Here's a more complete example that includes saving data back to the server:
+
+```tsx
+import { useForm } from '@tanstack/react-form'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+
+export default function UserProfile() {
+  const queryClient = useQueryClient()
+  
+  // Fetch initial data
+  const { data, isLoading } = useQuery({
+    queryKey: ['user'],
+    queryFn: async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      return {
+        firstName: 'John',
+        lastName: 'Doe',
+        email: 'john@example.com',
+      }
+    },
+  })
+
+  // Mutation for saving
+  const saveUserMutation = useMutation({
+    mutationFn: async (value: typeof data) => {
+      await fetch('/api/user', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(value),
+      })
+    },
+    onSuccess: () => {
+      // Invalidate and refetch
+      queryClient.invalidateQueries({ queryKey: ['user'] })
+    },
+  })
+
+  const form = useForm({
+    defaultValues: {
+      firstName: data?.firstName ?? '',
+      lastName: data?.lastName ?? '',
+      email: data?.email ?? '',
+    },
+    onSubmit: async ({ formApi, value }) => {
+      await saveUserMutation.mutateAsync(value)
+      // Reset form to match saved state
+      formApi.reset()
+    },
+  })
+
+  if (isLoading) return <p>Loading...</p>
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        form.handleSubmit()
+      }}
+    >
+      <form.Field
+        name="firstName"
+        validators={{
+          onChange: ({ value }) =>
+            value.length < 2 ? 'First name must be at least 2 characters' : undefined,
+        }}
+      >
+        {(field) => (
+          <div>
+            <label htmlFor={field.name}>First Name</label>
+            <input
+              id={field.name}
+              name={field.name}
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(e) => field.handleChange(e.target.value)}
+            />
+            {field.state.meta.errors && (
+              <span>{field.state.meta.errors}</span>
+            )}
+          </div>
+        )}
+      </form.Field>
+
+      <form.Subscribe
+        selector={(state) => [state.canSubmit, state.isSubmitting]}
+      >
+        {([canSubmit, isSubmitting]) => (
+          <button type="submit" disabled={!canSubmit}>
+            {isSubmitting ? 'Saving...' : 'Save'}
+          </button>
+        )}
+      </form.Subscribe>
+    </form>
+  )
+}
+```
+
+## Handling Loading States
+
+There are several approaches to handling loading states:
+
+### Show Loading Spinner
+
+The simplest approach is to show a loading indicator:
+
+```tsx
+if (isLoading) return <div>Loading form...</div>
+```
+
+### Show Disabled Form
+
+Alternatively, you can show the form in a disabled state:
+
+```tsx
+const { data, isLoading } = useQuery({ /* ... */ })
+
+return (
+  <form>
+    <fieldset disabled={isLoading}>
+      {/* Form fields */}
+    </fieldset>
+  </form>
+)
+```
+
+### Skeleton UI
+
+For a better user experience, show a skeleton that matches your form layout:
+
+```tsx
+if (isLoading) {
+  return (
+    <div className="form-skeleton">
+      <div className="skeleton-field" />
+      <div className="skeleton-field" />
+      <div className="skeleton-button" />
+    </div>
+  )
+}
+```
+
+## Error Handling
+
+Handle errors gracefully using TanStack Query's error state:
+
+```tsx
+const { data, isLoading, error } = useQuery({
+  queryKey: ['user'],
+  queryFn: fetchUser,
+  retry: 3, // Retry failed requests
+})
+
+if (isLoading) return <p>Loading...</p>
+if (error) return <p>Error loading form: {error.message}</p>
+```
+
+<Warning>
+  Always provide fallback values for your form fields to prevent controlled/uncontrolled input warnings when data is still loading.
+</Warning>
+
+## Caching Benefits
+
+TanStack Query automatically caches your data, which means:
+
+- **Instant form loading** when navigating back to the page
+- **Background updates** to keep data fresh
+- **Optimistic updates** for a snappy user experience
+- **Automatic retries** on failure
+
+```tsx
+const { data } = useQuery({
+  queryKey: ['user'],
+  queryFn: fetchUser,
+  staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+  cacheTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+})
+```
+
+## Refetching After Save
+
+After saving form data, you may want to refetch to get the server's version:
+
+```tsx
+const { data, refetch } = useQuery({
+  queryKey: ['user'],
+  queryFn: fetchUser,
+})
+
+const form = useForm({
+  defaultValues: {
+    firstName: data?.firstName ?? '',
+    lastName: data?.lastName ?? '',
+  },
+  onSubmit: async ({ formApi, value }) => {
+    await saveUser(value)
+    // Refetch to get latest data from server
+    await refetch()
+    // Reset form with fresh data
+    formApi.reset()
+  },
+})
+```
+
+## Setup
+
+To use TanStack Query with TanStack Form, install both libraries:
+
+```bash
+npm install @tanstack/react-form @tanstack/react-query
+```
+
+Wrap your app with the QueryClientProvider:
+
+```tsx
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+const queryClient = new QueryClient()
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <YourFormComponent />
+    </QueryClientProvider>
+  )
+}
+```
+
+<Tip>
+  Consider using the [TanStack Query DevTools](https://tanstack.com/query/latest/docs/framework/react/devtools) alongside the [TanStack Form DevTools](/guides/debugging) for a complete debugging experience.
+</Tip>

@@ -1,0 +1,356 @@
+---
+title: Array Fields
+description: Manage dynamic lists of form fields in TanStack Form for Vue
+---
+
+TanStack Form supports arrays as values in a form, including sub-object values inside of an array. This is useful for managing dynamic lists of form fields like multiple addresses, phone numbers, or any repeating data structure.
+
+## Basic Usage
+
+To use an array field, you can use `field.state.value` on an array value in conjunction with `v-for`:
+
+```vue
+<script setup lang="ts">
+import { useForm } from '@tanstack/vue-form'
+
+const form = useForm({
+  defaultValues: {
+    people: [] as Array<{ age: number; name: string }>,
+  },
+  onSubmit: ({ value }) => alert(JSON.stringify(value)),
+})
+</script>
+
+<template>
+  <form.Field name="people">
+    <template v-slot="{ field, state }">
+      <div>
+        <form.Field
+          v-for="(_, i) of field.state.value"
+          :key="i"
+          :name="`people[${i}].name`"
+        >
+          <template v-slot="{ field: subField, state }">
+            <!-- ... -->
+          </template>
+        </form.Field>
+      </div>
+    </template>
+  </form.Field>
+</template>
+```
+
+## Adding Items to Arrays
+
+Use the `pushValue` method to add items to your array:
+
+```vue
+<button @click="field.pushValue({ name: '', age: 0 })" type="button">
+  Add person
+</button>
+```
+
+## Working with Sub-Fields
+
+You can access and manipulate individual items in the array using bracket notation:
+
+```vue
+<form.Field
+  v-for="(_, i) of field.state.value"
+  :key="i"
+  :name="`people[${i}].name`"
+>
+  <template v-slot="{ field: subField, state }">
+    <div>
+      <label>
+        <div>Name for person {{ i }}</div>
+        <input
+          :value="subField.state.value"
+          @input="
+            (e) =>
+              subField.handleChange(
+                (e.target as HTMLInputElement).value,
+              )
+          "
+        />
+      </label>
+    </div>
+  </template>
+</form.Field>
+```
+
+## Array Manipulation Methods
+
+When working with array fields, you have access to several helper methods:
+
+- **pushValue** - Add a value to the end of the array
+- **removeValue** - Remove a value at a specific index
+- **swapValues** - Swap two values at different indices
+- **moveValue** - Move a value from one index to another
+- **insertValue** - Insert a value at a specific index
+- **replaceValue** - Replace a value at a specific index
+- **clearValues** - Clear all values in the array
+
+### Removing Items
+
+```vue
+<button
+  type="button"
+  @click="hobbiesField.removeValue(i)"
+>
+  Remove
+</button>
+```
+
+### Swapping Items
+
+```vue
+<button
+  type="button"
+  @click="field.swapValues(0, 1)"
+>
+  Swap First Two Items
+</button>
+```
+
+## Complete Example
+
+Here's a full working example with array fields:
+
+```vue
+<script setup lang="ts">
+import { useForm } from '@tanstack/vue-form'
+
+const form = useForm({
+  defaultValues: {
+    people: [] as Array<{ age: number; name: string }>,
+  },
+  onSubmit: ({ value }) => alert(JSON.stringify(value)),
+})
+</script>
+
+<template>
+  <form
+    @submit="
+      (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        form.handleSubmit()
+      }
+    "
+  >
+    <div>
+      <form.Field name="people">
+        <template v-slot="{ field }">
+          <div>
+            <form.Field
+              v-for="(_, i) of field.state.value"
+              :key="i"
+              :name="`people[${i}].name`"
+            >
+              <template v-slot="{ field: subField }">
+                <div>
+                  <label>
+                    <div>Name for person {{ i }}</div>
+                    <input
+                      :value="subField.state.value"
+                      @input="
+                        (e) =>
+                          subField.handleChange(
+                            (e.target as HTMLInputElement).value,
+                          )
+                      "
+                    />
+                  </label>
+                </div>
+              </template>
+            </form.Field>
+
+            <button
+              @click="field.pushValue({ name: '', age: 0 })"
+              type="button"
+            >
+              Add person
+            </button>
+          </div>
+        </template>
+      </form.Field>
+    </div>
+    <form.Subscribe>
+      <template v-slot="{ canSubmit, isSubmitting }">
+        <button type="submit" :disabled="!canSubmit">
+          {{ isSubmitting ? '...' : 'Submit' }}
+        </button>
+      </template>
+    </form.Subscribe>
+  </form>
+</template>
+```
+
+## Nested Object Arrays
+
+You can work with arrays of complex objects with multiple properties:
+
+```vue
+<script setup lang="ts">
+const form = useForm({
+  defaultValues: {
+    hobbies: [] as Array<{
+      name: string
+      description: string
+      yearsOfExperience: number
+    }>,
+  },
+  onSubmit: async ({ value }) => {
+    console.log(value)
+  },
+})
+</script>
+
+<template>
+  <form @submit.prevent.stop="form.handleSubmit">
+    <form.Field name="hobbies" mode="array">
+      <template v-slot="{ field: hobbiesField }">
+        <div>
+          <h3>Hobbies</h3>
+          <div>
+            <div
+              v-if="
+                Array.isArray(hobbiesField.state.value) &&
+                !hobbiesField.state.value.length
+              "
+            >
+              No hobbies found.
+            </div>
+            <div v-else>
+              <div v-for="(_, i) in hobbiesField.state.value" :key="i">
+                <form.Field :name="`hobbies[${i}].name`">
+                  <template v-slot="{ field }">
+                    <div>
+                      <label :for="field.name">Name:</label>
+                      <input
+                        :id="field.name"
+                        :name="field.name"
+                        :value="field.state.value"
+                        @blur="field.handleBlur"
+                        @input="(e) => field.handleChange(e.target.value)"
+                      />
+                      <button
+                        type="button"
+                        @click="hobbiesField.removeValue(i)"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </template>
+                </form.Field>
+                <form.Field :name="`hobbies[${i}].description`">
+                  <template v-slot="{ field }">
+                    <div>
+                      <label :for="field.name">Description:</label>
+                      <input
+                        :id="field.name"
+                        :name="field.name"
+                        :value="field.state.value"
+                        @blur="field.handleBlur"
+                        @input="(e) => field.handleChange(e.target.value)"
+                      />
+                    </div>
+                  </template>
+                </form.Field>
+              </div>
+            </div>
+            <button
+              type="button"
+              @click="
+                hobbiesField.pushValue({
+                  name: '',
+                  description: '',
+                  yearsOfExperience: 0,
+                })
+              "
+            >
+              Add hobby
+            </button>
+          </div>
+        </div>
+      </template>
+    </form.Field>
+  </form>
+</template>
+```
+
+## Validation with Array Fields
+
+You can add validation to array fields and their sub-fields:
+
+```vue
+<template>
+  <form.Field
+    name="people"
+    mode="array"
+    :validators="{
+      onChange: ({ value }) =>
+        value.length === 0 ? 'At least one person is required' : undefined,
+    }"
+  >
+    <template v-slot="{ field }">
+      <div>
+        <form.Field
+          v-for="(_, i) of field.state.value"
+          :key="i"
+          :name="`people[${i}].name`"
+          :validators="{
+            onChange: ({ value }) =>
+              !value
+                ? 'Name is required'
+                : value.length < 3
+                  ? 'Name must be at least 3 characters'
+                  : undefined,
+          }"
+        >
+          <template v-slot="{ field: subField }">
+            <input
+              :value="subField.state.value"
+              @input="(e) => subField.handleChange(e.target.value)"
+            />
+            <em v-if="!subField.state.meta.isValid">
+              {{ subField.state.meta.errors.join(', ') }}
+            </em>
+          </template>
+        </form.Field>
+      </div>
+    </template>
+  </form.Field>
+</template>
+```
+
+## Tips for Working with Arrays
+
+<Steps>
+  <Step title="Use proper keys">
+    Always use a unique key for each item in your `v-for` loop. While using the index is acceptable for simple cases, consider using a unique identifier if your items have one.
+  </Step>
+
+  <Step title="Initialize with proper types">
+    When defining default values, make sure to type your arrays correctly:
+    ```typescript
+    defaultValues: {
+      people: [] as Array<{ age: number; name: string }>,
+    }
+    ```
+  </Step>
+
+  <Step title="Handle empty states">
+    Provide clear UI feedback when arrays are empty:
+    ```vue
+    <div v-if="!field.state.value.length">
+      No items found. Click "Add" to get started.
+    </div>
+    ```
+  </Step>
+
+  <Step title="Consider performance">
+    For large arrays, consider pagination or virtualization to maintain performance.
+  </Step>
+</Steps>

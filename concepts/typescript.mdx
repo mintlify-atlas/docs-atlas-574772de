@@ -1,0 +1,596 @@
+---
+title: TypeScript Support
+description: TypeScript usage and type inference in TanStack Form
+---
+
+TanStack Form is written 100% in **TypeScript** with the highest quality generics, constraints, and interfaces to make sure the library and your projects are as type-safe as possible!
+
+## Requirements
+
+To get the most out of TanStack Form's TypeScript support:
+
+- **TypeScript v5.4 or greater** is required
+- **`strict: true`** must be enabled in your `tsconfig.json`
+
+```json
+{
+  "compilerOptions": {
+    "strict": true,
+    // ... other options
+  }
+}
+```
+
+<Note>
+  Changes to types in this repository are considered **non-breaking** and are usually released as **patch** semver changes. It is highly recommended that you lock your package version to a specific patch release.
+</Note>
+
+## Type Inference
+
+One of the most powerful features of TanStack Form is its automatic type inference. You **never need to pass generics** when using TanStack Form—everything is inferred from your `defaultValues`.
+
+### Basic Type Inference
+
+```tsx
+import { useForm } from '@tanstack/react-form'
+
+function MyForm() {
+  const form = useForm({
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+      age: 0,
+    },
+  })
+
+  // TypeScript automatically knows the types!
+  form.setFieldValue('firstName', 'John') // ✓ Type-safe
+  form.setFieldValue('age', 25) // ✓ Type-safe
+  form.setFieldValue('age', '25') // ✗ Type error: string not assignable to number
+  form.setFieldValue('invalid', 'value') // ✗ Type error: invalid field name
+}
+```
+
+### Type Inference with Interfaces
+
+For better type reusability, define an interface and use it in your default values:
+
+```tsx
+interface User {
+  firstName: string
+  lastName: string
+  age: number
+  email: string
+}
+
+const defaultUser: User = {
+  firstName: '',
+  lastName: '',
+  age: 0,
+  email: '',
+}
+
+const form = useForm({
+  defaultValues: defaultUser,
+})
+
+// All fields are fully typed!
+<form.Field
+  name="email" // Autocomplete works!
+  validators={{
+    onChange: ({ value }) => {
+      // value is typed as string
+      return !value.includes('@') ? 'Invalid email' : undefined
+    },
+  }}
+/>
+```
+
+<Tip>
+  Define your form shape once using an interface, then use it in your `defaultValues`. This gives you full type safety without any generics.
+</Tip>
+
+## Deep Type Inference
+
+TanStack Form provides sophisticated type inference for nested objects and arrays using its `DeepKeys` and `DeepValue` utility types.
+
+### Nested Objects
+
+```tsx
+interface UserProfile {
+  name: string
+  contact: {
+    email: string
+    phone: string
+    address: {
+      street: string
+      city: string
+      country: string
+    }
+  }
+}
+
+const form = useForm({
+  defaultValues: {
+    name: '',
+    contact: {
+      email: '',
+      phone: '',
+      address: {
+        street: '',
+        city: '',
+        country: '',
+      },
+    },
+  } as UserProfile,
+})
+
+// Type-safe nested field access
+<form.Field name="contact.email" />
+<form.Field name="contact.address.city" />
+<form.Field name="contact.address.invalid" /> // ✗ Type error
+
+// Type-safe value access
+const city = form.getFieldValue('contact.address.city') // string
+form.setFieldValue('contact.address.city', 'New York') // ✓
+form.setFieldValue('contact.address.city', 123) // ✗ Type error
+```
+
+### Arrays and Tuples
+
+```tsx
+interface TodoForm {
+  title: string
+  tasks: Array<{
+    name: string
+    completed: boolean
+    priority: 'low' | 'medium' | 'high'
+  }>
+}
+
+const form = useForm({
+  defaultValues: {
+    title: '',
+    tasks: [],
+  } as TodoForm,
+})
+
+// Type-safe array field access
+<form.Field name="tasks[0].name" />
+<form.Field name="tasks[0].completed" />
+<form.Field name="tasks[0].priority" />
+
+// Type-safe array manipulation
+form.pushFieldValue('tasks', {
+  name: 'New task',
+  completed: false,
+  priority: 'medium',
+}) // ✓
+
+form.pushFieldValue('tasks', {
+  name: 'Invalid task',
+  completed: 'yes', // ✗ Type error: string not assignable to boolean
+  priority: 'urgent', // ✗ Type error: not a valid priority
+})
+
+// Array utilities are fully typed
+form.removeFieldValue('tasks', 0) // ✓
+form.swapFieldValues('tasks', 0, 1) // ✓
+form.insertFieldValue('tasks', 0, { /* typed object */ }) // ✓
+```
+
+## Advanced Type Utilities
+
+TanStack Form exposes several utility types that power its type inference system.
+
+### DeepKeys
+
+Extracts all possible field paths from your form data type:
+
+```tsx
+import type { DeepKeys } from '@tanstack/form-core'
+
+interface Form {
+  user: {
+    name: string
+    email: string
+  }
+  tags: string[]
+}
+
+type FormKeys = DeepKeys<Form>
+// Result: "user" | "user.name" | "user.email" | "tags" | `tags[${number}]`
+```
+
+### DeepValue
+
+Extracts the type of a value at a specific field path:
+
+```tsx
+import type { DeepValue } from '@tanstack/form-core'
+
+interface Form {
+  user: {
+    name: string
+    age: number
+  }
+}
+
+type UserName = DeepValue<Form, 'user.name'> // string
+type UserAge = DeepValue<Form, 'user.age'> // number
+type User = DeepValue<Form, 'user'> // { name: string; age: number }
+```
+
+### DeepKeysOfType
+
+Finds all field paths that match a specific type:
+
+```tsx
+import type { DeepKeysOfType } from '@tanstack/form-core'
+
+interface Form {
+  name: string
+  age: number
+  email: string
+  tags: string[]
+  scores: number[]
+}
+
+type StringFields = DeepKeysOfType<Form, string>
+// Result: "name" | "email"
+
+type ArrayFields = DeepKeysOfType<Form, any[]>
+// Result: "tags" | "scores" | `tags[${number}]` | `scores[${number}]`
+```
+
+<Note>
+  These utility types are exported from `@tanstack/form-core` and can be used in your own type definitions when building custom form components.
+</Note>
+
+## Field API Types
+
+When working with fields, you'll often need to type the field API:
+
+### Typed Field API
+
+```tsx
+import type { FieldApi } from '@tanstack/react-form'
+
+function MyCustomField({
+  field,
+}: {
+  field: FieldApi<any, any, any, any, string> // Last generic is the field value type
+}) {
+  return (
+    <input
+      value={field.state.value}
+      onChange={(e) => field.handleChange(e.target.value)}
+    />
+  )
+}
+```
+
+### Any Field API
+
+For generic field components that work with any field type:
+
+```tsx
+import type { AnyFieldApi } from '@tanstack/react-form'
+
+function FieldInfo({ field }: { field: AnyFieldApi }) {
+  return (
+    <>
+      {field.state.meta.isTouched && field.state.meta.errors && (
+        <em>{field.state.meta.errors.join(', ')}</em>
+      )}
+      {field.state.meta.isValidating && <span>Validating...</span>}
+    </>
+  )
+}
+```
+
+## Validator Types
+
+Validators are fully typed based on your form structure:
+
+```tsx
+import type { FieldValidateFn, FieldValidateAsyncFn } from '@tanstack/react-form'
+
+interface LoginForm {
+  username: string
+  password: string
+}
+
+// Sync validator
+const usernameValidator: FieldValidateFn<LoginForm, 'username'> = ({
+  value,
+  fieldApi,
+}) => {
+  // value is typed as string
+  if (value.length < 3) {
+    return 'Username must be at least 3 characters'
+  }
+  return undefined
+}
+
+// Async validator
+const usernameAsyncValidator: FieldValidateAsyncFn<LoginForm, 'username'> = async ({
+  value,
+  signal,
+}) => {
+  // value is typed as string
+  const response = await fetch(`/api/check-username?name=${value}`, { signal })
+  const data = await response.json()
+  return data.exists ? 'Username already taken' : undefined
+}
+
+const form = useForm({
+  defaultValues: {
+    username: '',
+    password: '',
+  } as LoginForm,
+})
+
+<form.Field
+  name="username"
+  validators={{
+    onChange: usernameValidator,
+    onChangeAsync: usernameAsyncValidator,
+  }}
+/>
+```
+
+## Validation Error Types
+
+Customize your error types for better type safety:
+
+```tsx
+interface CustomError {
+  message: string
+  code: string
+  severity: 'error' | 'warning'
+}
+
+const form = useForm({
+  defaultValues: {
+    email: '',
+  },
+})
+
+<form.Field
+  name="email"
+  validators={{
+    onChange: ({ value }) => {
+      if (!value) {
+        return {
+          message: 'Email is required',
+          code: 'REQUIRED',
+          severity: 'error',
+        } as CustomError
+      }
+      return undefined
+    },
+  }}
+  children={(field) => (
+    <>
+      <input
+        value={field.state.value}
+        onChange={(e) => field.handleChange(e.target.value)}
+      />
+      {field.state.meta.errors?.map((error) => (
+        <div key={error.code} className={`alert-${error.severity}`}>
+          {error.message}
+        </div>
+      ))}
+    </>
+  )}
+/>
+```
+
+## Form Options Types
+
+When creating reusable form configurations:
+
+```tsx
+import type { FormOptions } from '@tanstack/react-form'
+
+interface UserForm {
+  name: string
+  email: string
+  age: number
+}
+
+const userFormOptions: FormOptions<UserForm> = {
+  defaultValues: {
+    name: '',
+    email: '',
+    age: 0,
+  },
+  validators: {
+    onChange: ({ value }) => {
+      // Validate across multiple fields
+      if (value.age < 18 && !value.email.includes('parent')) {
+        return {
+          form: 'Minors must use parent email',
+          fields: {
+            email: 'Use parent email address',
+          },
+        }
+      }
+      return undefined
+    },
+  },
+  onSubmit: async ({ value }) => {
+    // value is fully typed as UserForm
+    await saveUser(value)
+  },
+}
+
+const form = useForm(userFormOptions)
+```
+
+## Best Practices
+
+### 1. Let TypeScript Infer
+
+Avoid manually passing generics:
+
+```tsx
+// ❌ Bad: Manual generics
+const form = useForm<MyForm>({
+  defaultValues: { name: '' },
+})
+
+// ✅ Good: Let TypeScript infer
+const defaultForm: MyForm = { name: '' }
+const form = useForm({ defaultValues: defaultForm })
+```
+
+### 2. Use Interfaces for Complex Forms
+
+```tsx
+// ✅ Good: Clear, reusable types
+interface CheckoutForm {
+  customer: {
+    name: string
+    email: string
+  }
+  items: Array<{
+    id: string
+    quantity: number
+  }>
+  payment: {
+    method: 'card' | 'paypal'
+    details: Record<string, string>
+  }
+}
+
+const form = useForm({
+  defaultValues: {
+    /* ... */
+  } as CheckoutForm,
+})
+```
+
+### 3. Type Guard Validators
+
+Use type guards in validators for runtime type safety:
+
+```tsx
+function isValidEmail(value: unknown): value is string {
+  return typeof value === 'string' && value.includes('@')
+}
+
+<form.Field
+  name="email"
+  validators={{
+    onChange: ({ value }) => {
+      if (!isValidEmail(value)) {
+        return 'Invalid email format'
+      }
+      return undefined
+    },
+  }}
+/>
+```
+
+### 4. Export Types for Reuse
+
+```tsx
+// types/forms.ts
+export interface LoginFormData {
+  username: string
+  password: string
+  rememberMe: boolean
+}
+
+// components/LoginForm.tsx
+import type { LoginFormData } from '../types/forms'
+
+export function LoginForm() {
+  const form = useForm({
+    defaultValues: {
+      username: '',
+      password: '',
+      rememberMe: false,
+    } as LoginFormData,
+  })
+}
+```
+
+<Tip>
+  Keep your form type definitions in a central location and import them where needed. This ensures consistency and makes refactoring easier.
+</Tip>
+
+## TypeScript Configuration
+
+For optimal TypeScript support with TanStack Form:
+
+```json
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2020",
+    "module": "ESNext",
+    "lib": ["ES2020", "DOM"],
+    "skipLibCheck": false,
+    "esModuleInterop": true,
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx"
+  }
+}
+```
+
+## Troubleshooting
+
+### Type Errors with Nested Paths
+
+If you're getting type errors with nested field paths, ensure your TypeScript version is 5.4 or higher:
+
+```bash
+npm install -D typescript@latest
+```
+
+### Slow Type Checking
+
+For very large forms with deep nesting, TypeScript may slow down. Consider splitting large forms into smaller sub-forms:
+
+```tsx
+// Instead of one massive form
+const massiveForm = useForm({ /* 50+ fields */ })
+
+// Use multiple smaller forms
+const personalInfoForm = useForm({ /* 10 fields */ })
+const addressForm = useForm({ /* 10 fields */ })
+const preferencesForm = useForm({ /* 10 fields */ })
+```
+
+### Generic Type Inference Issues
+
+If TypeScript can't infer your types properly, explicitly type your default values:
+
+```tsx
+interface Form {
+  items: Array<{ id: string }>
+}
+
+// May cause issues
+const form = useForm({
+  defaultValues: {
+    items: [], // TypeScript can't infer the array type
+  },
+})
+
+// ✅ Fix: Explicitly type default values
+const form = useForm({
+  defaultValues: {
+    items: [] as Array<{ id: string }>,
+  },
+})
+```
+
+<Note>
+  The non-type-related public API of TanStack Form follows semver strictly. Type improvements and fixes are released as patch versions.
+</Note>

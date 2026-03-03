@@ -1,0 +1,607 @@
+---
+title: FieldOptions
+description: Configuration options for FieldApi
+---
+
+# FieldOptions
+
+The `FieldOptions` interface defines the configuration options for creating and managing a form field with `FieldApi`.
+
+## Type Definition
+
+```typescript
+interface FieldOptions<
+  TParentData,
+  TName extends DeepKeys<TParentData>,
+  TData extends DeepValue<TParentData, TName>,
+  TOnMount extends undefined | FieldValidateOrFn<TParentData, TName, TData>,
+  TOnChange extends undefined | FieldValidateOrFn<TParentData, TName, TData>,
+  TOnChangeAsync extends undefined | FieldAsyncValidateOrFn<TParentData, TName, TData>,
+  TOnBlur extends undefined | FieldValidateOrFn<TParentData, TName, TData>,
+  TOnBlurAsync extends undefined | FieldAsyncValidateOrFn<TParentData, TName, TData>,
+  TOnSubmit extends undefined | FieldValidateOrFn<TParentData, TName, TData>,
+  TOnSubmitAsync extends undefined | FieldAsyncValidateOrFn<TParentData, TName, TData>,
+  TOnDynamic extends undefined | FieldValidateOrFn<TParentData, TName, TData>,
+  TOnDynamicAsync extends undefined | FieldAsyncValidateOrFn<TParentData, TName, TData>
+>
+```
+
+## Properties
+
+### name
+
+```typescript
+name: TName
+```
+
+**Required**. The field name. Supports dot notation for nested fields.
+
+#### Example
+
+```typescript
+// Simple field
+const nameField = new FieldApi({
+  form,
+  name: 'firstName',
+})
+
+// Nested field
+const streetField = new FieldApi({
+  form,
+  name: 'address.street',
+})
+
+// Array field
+const firstHobbyField = new FieldApi({
+  form,
+  name: 'hobbies[0]',
+})
+```
+
+### defaultValue
+
+```typescript
+defaultValue?: TData
+```
+
+An optional default value for the field. This will be used if the field value is undefined.
+
+#### Example
+
+```typescript
+const ageField = new FieldApi({
+  form,
+  name: 'age',
+  defaultValue: 18,
+})
+```
+
+### defaultMeta
+
+```typescript
+defaultMeta?: Partial<FieldMeta>
+```
+
+An optional object with default metadata for the field.
+
+#### Example
+
+```typescript
+const field = new FieldApi({
+  form,
+  name: 'email',
+  defaultMeta: {
+    isTouched: false,
+    isValidating: false,
+  },
+})
+```
+
+### validators
+
+```typescript
+validators?: FieldValidators<TParentData, TName, TData>
+```
+
+A list of validators to pass to the field. See [Validators](/api/core/validators) for details.
+
+#### Example
+
+```typescript
+const emailField = new FieldApi({
+  form,
+  name: 'email',
+  validators: {
+    onChange: ({ value }) => {
+      if (!value) return 'Email is required'
+      if (!value.includes('@')) return 'Invalid email format'
+      return undefined
+    },
+    onChangeAsync: async ({ value }) => {
+      if (value) {
+        const available = await checkEmailAvailability(value)
+        if (!available) return 'Email already taken'
+      }
+      return undefined
+    },
+    onChangeAsyncDebounceMs: 500,
+  },
+})
+```
+
+### asyncAlways
+
+```typescript
+asyncAlways?: boolean
+```
+
+If `true`, always run async validation, even if there are errors emitted during synchronous validation. Defaults to `false`.
+
+### asyncDebounceMs
+
+```typescript
+asyncDebounceMs?: number
+```
+
+The default time to debounce async validation if there is not a more specific debounce time passed.
+
+#### Example
+
+```typescript
+const usernameField = new FieldApi({
+  form,
+  name: 'username',
+  asyncDebounceMs: 300,
+  validators: {
+    onChangeAsync: async ({ value }) => {
+      const available = await checkUsername(value)
+      return available ? undefined : 'Username taken'
+    },
+  },
+})
+```
+
+### listeners
+
+```typescript
+listeners?: FieldListeners<TParentData, TName, TData>
+```
+
+A list of listeners which attach to the corresponding events.
+
+#### Example
+
+```typescript
+const field = new FieldApi({
+  form,
+  name: 'password',
+  listeners: {
+    onChange: ({ value }) => {
+      console.log('Password changed:', value.length, 'characters')
+    },
+    onBlur: ({ value }) => {
+      console.log('Password field blurred')
+    },
+    onMount: ({ value }) => {
+      console.log('Password field mounted')
+    },
+    onSubmit: ({ value }) => {
+      console.log('Form submitted with password')
+    },
+  },
+})
+```
+
+### disableErrorFlat
+
+```typescript
+disableErrorFlat?: boolean
+```
+
+Disable the `flat(1)` operation on `field.errors`. This is useful if you want to keep the error structure as is. Not suggested for most use cases.
+
+## FieldValidators
+
+The `validators` property accepts a `FieldValidators` object with the following properties:
+
+### onMount
+
+```typescript
+onMount?: FieldValidateOrFn<TParentData, TName, TData>
+```
+
+An optional function that runs on the mount event of the field.
+
+#### Example
+
+```typescript
+const field = new FieldApi({
+  form,
+  name: 'terms',
+  validators: {
+    onMount: ({ value }) => {
+      // Validate immediately when field mounts
+      if (!value) return 'You must accept the terms'
+      return undefined
+    },
+  },
+})
+```
+
+### onChange
+
+```typescript
+onChange?: FieldValidateOrFn<TParentData, TName, TData>
+```
+
+An optional function that runs on the change event of the field.
+
+#### Example
+
+```typescript
+import { z } from 'zod'
+
+const field = new FieldApi({
+  form,
+  name: 'email',
+  validators: {
+    // Using a custom function
+    onChange: ({ value }) => {
+      if (!value) return 'Email is required'
+      if (!value.includes('@')) return 'Invalid email'
+      return undefined
+    },
+    
+    // Or using a schema (Zod example)
+    onChange: z.string().email('Invalid email format'),
+  },
+})
+```
+
+### onChangeAsync
+
+```typescript
+onChangeAsync?: FieldAsyncValidateOrFn<TParentData, TName, TData>
+```
+
+An optional async validation function for the change event.
+
+#### Example
+
+```typescript
+const field = new FieldApi({
+  form,
+  name: 'username',
+  validators: {
+    onChangeAsync: async ({ value, signal }) => {
+      if (!value) return undefined
+      
+      const response = await fetch(
+        `/api/check-username?username=${value}`,
+        { signal }
+      )
+      const data = await response.json()
+      
+      return data.available ? undefined : 'Username already taken'
+    },
+  },
+})
+```
+
+### onChangeAsyncDebounceMs
+
+```typescript
+onChangeAsyncDebounceMs?: number
+```
+
+An optional number to represent how long the `onChangeAsync` should wait before running. If set to a number larger than 0, will debounce the async validation event by this length of time in milliseconds.
+
+### onChangeListenTo
+
+```typescript
+onChangeListenTo?: DeepKeys<TParentData>[]
+```
+
+An optional list of field names that should trigger this field's `onChange` and `onChangeAsync` events when their values change.
+
+#### Example
+
+```typescript
+// Re-validate password confirmation when password changes
+const passwordConfirmField = new FieldApi({
+  form,
+  name: 'passwordConfirm',
+  validators: {
+    onChange: ({ value, fieldApi }) => {
+      const password = fieldApi.form.getFieldValue('password')
+      if (value !== password) {
+        return 'Passwords do not match'
+      }
+      return undefined
+    },
+    onChangeListenTo: ['password'], // Re-run validation when 'password' changes
+  },
+})
+```
+
+### onBlur
+
+```typescript
+onBlur?: FieldValidateOrFn<TParentData, TName, TData>
+```
+
+An optional function that runs on the blur event of the field.
+
+#### Example
+
+```typescript
+const field = new FieldApi({
+  form,
+  name: 'age',
+  validators: {
+    onBlur: ({ value }) => {
+      if (value < 18) return 'Must be 18 or older'
+      if (value > 120) return 'Invalid age'
+      return undefined
+    },
+  },
+})
+```
+
+### onBlurAsync
+
+```typescript
+onBlurAsync?: FieldAsyncValidateOrFn<TParentData, TName, TData>
+```
+
+An optional async validation function for the blur event.
+
+### onBlurAsyncDebounceMs
+
+```typescript
+onBlurAsyncDebounceMs?: number
+```
+
+An optional number to represent how long the `onBlurAsync` should wait before running.
+
+### onBlurListenTo
+
+```typescript
+onBlurListenTo?: DeepKeys<TParentData>[]
+```
+
+An optional list of field names that should trigger this field's `onBlur` and `onBlurAsync` events when their values change.
+
+### onSubmit
+
+```typescript
+onSubmit?: FieldValidateOrFn<TParentData, TName, TData>
+```
+
+An optional function that runs on the submit event of the form.
+
+#### Example
+
+```typescript
+const field = new FieldApi({
+  form,
+  name: 'creditCard',
+  validators: {
+    onSubmit: ({ value }) => {
+      // More expensive validation only on submit
+      if (!isValidCreditCard(value)) {
+        return 'Invalid credit card number'
+      }
+      return undefined
+    },
+  },
+})
+```
+
+### onSubmitAsync
+
+```typescript
+onSubmitAsync?: FieldAsyncValidateOrFn<TParentData, TName, TData>
+```
+
+An optional async validation function for the submit event.
+
+### onDynamic
+
+```typescript
+onDynamic?: FieldValidateOrFn<TParentData, TName, TData>
+```
+
+Optional dynamic validation function.
+
+### onDynamicAsync
+
+```typescript
+onDynamicAsync?: FieldAsyncValidateOrFn<TParentData, TName, TData>
+```
+
+Optional async dynamic validation.
+
+### onDynamicAsyncDebounceMs
+
+```typescript
+onDynamicAsyncDebounceMs?: number
+```
+
+The time in milliseconds to debounce the `onDynamicAsync` validation.
+
+## FieldListeners
+
+The `listeners` property accepts a `FieldListeners` object:
+
+### onChange
+
+```typescript
+onChange?: (props: {
+  value: TData
+  fieldApi: FieldApi<TParentData, TName, TData>
+}) => void
+```
+
+Called whenever the field value changes.
+
+### onChangeDebounceMs
+
+```typescript
+onChangeDebounceMs?: number
+```
+
+Debounce time for the `onChange` listener.
+
+### onBlur
+
+```typescript
+onBlur?: (props: {
+  value: TData
+  fieldApi: FieldApi<TParentData, TName, TData>
+}) => void
+```
+
+Called whenever the field loses focus.
+
+### onBlurDebounceMs
+
+```typescript
+onBlurDebounceMs?: number
+```
+
+Debounce time for the `onBlur` listener.
+
+### onMount
+
+```typescript
+onMount?: (props: {
+  value: TData
+  fieldApi: FieldApi<TParentData, TName, TData>
+}) => void
+```
+
+Called when the field mounts.
+
+### onSubmit
+
+```typescript
+onSubmit?: (props: {
+  value: TData
+  fieldApi: FieldApi<TParentData, TName, TData>
+}) => void
+```
+
+Called when the form is submitted.
+
+## Complete Example
+
+```typescript
+import { FormApi, FieldApi } from '@tanstack/form-core'
+import { z } from 'zod'
+
+interface FormData {
+  username: string
+  email: string
+  password: string
+  passwordConfirm: string
+}
+
+const form = new FormApi<FormData>({
+  defaultValues: {
+    username: '',
+    email: '',
+    password: '',
+    passwordConfirm: '',
+  },
+})
+
+const usernameField = new FieldApi({
+  form,
+  name: 'username',
+  defaultValue: '',
+  
+  validators: {
+    onChange: ({ value }) => {
+      if (!value) return 'Username is required'
+      if (value.length < 3) return 'Username must be at least 3 characters'
+      if (!/^[a-zA-Z0-9_]+$/.test(value)) {
+        return 'Username can only contain letters, numbers, and underscores'
+      }
+      return undefined
+    },
+    
+    onChangeAsync: async ({ value, signal }) => {
+      if (!value || value.length < 3) return undefined
+      
+      try {
+        const response = await fetch(
+          `/api/check-username?username=${value}`,
+          { signal }
+        )
+        const data = await response.json()
+        return data.available ? undefined : 'Username already taken'
+      } catch (error) {
+        if (signal.aborted) return undefined
+        return 'Error checking username availability'
+      }
+    },
+    
+    onChangeAsyncDebounceMs: 500,
+  },
+  
+  listeners: {
+    onChange: ({ value }) => {
+      console.log('Username changed to:', value)
+    },
+    onBlur: ({ value }) => {
+      console.log('Username field blurred with value:', value)
+    },
+  },
+})
+
+const emailField = new FieldApi({
+  form,
+  name: 'email',
+  
+  validators: {
+    onChange: z.string().email('Invalid email format'),
+  },
+})
+
+const passwordField = new FieldApi({
+  form,
+  name: 'password',
+  
+  validators: {
+    onChange: ({ value }) => {
+      if (!value) return 'Password is required'
+      if (value.length < 8) return 'Password must be at least 8 characters'
+      if (!/[A-Z]/.test(value)) return 'Password must contain an uppercase letter'
+      if (!/[a-z]/.test(value)) return 'Password must contain a lowercase letter'
+      if (!/[0-9]/.test(value)) return 'Password must contain a number'
+      return undefined
+    },
+  },
+})
+
+const passwordConfirmField = new FieldApi({
+  form,
+  name: 'passwordConfirm',
+  
+  validators: {
+    onChange: ({ value, fieldApi }) => {
+      const password = fieldApi.form.getFieldValue('password')
+      if (value !== password) return 'Passwords do not match'
+      return undefined
+    },
+    onChangeListenTo: ['password'],
+  },
+})
+```
+
+## See Also
+
+- [FieldApi](/api/core/field-api) - The FieldApi class
+- [FormOptions](/api/core/form-options) - Configuration options for forms
+- [Validators](/api/core/validators) - Validation functions and types

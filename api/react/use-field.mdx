@@ -1,0 +1,431 @@
+---
+title: useField
+description: API reference for the useField hook in TanStack Form React
+---
+
+The `useField` hook is used to create and manage individual form fields with full type safety and validation support.
+
+## Import
+
+```tsx
+import { useField } from '@tanstack/react-form'
+```
+
+## Signature
+
+```tsx
+function useField<
+  TParentData,
+  TName extends DeepKeys<TParentData>,
+  TData extends DeepValue<TParentData, TName>
+>(opts: UseFieldOptions<TParentData, TName, TData>): FieldApi<TParentData, TName, TData>
+```
+
+## Parameters
+
+<ParamField path="opts" type="UseFieldOptions<TParentData, TName, TData>">
+  Configuration options for the field
+
+  <ParamField path="opts.form" type="FormApi<TParentData>" required>
+    The form API instance this field belongs to
+  </ParamField>
+
+  <ParamField path="opts.name" type="DeepKeys<TParentData>" required>
+    The field name as a dot-notation path (e.g., `"user.name"` or `"users[0].email"`)
+  </ParamField>
+
+  <ParamField path="opts.mode" type="'value' | 'array'" optional>
+    Controls reactivity behavior:
+    - `'value'`: Re-renders on any value change (default)
+    - `'array'`: Only re-renders when array length changes (useful for array fields)
+  </ParamField>
+
+  <ParamField path="opts.defaultValue" type="TData" optional>
+    Default value for this field
+  </ParamField>
+
+  <ParamField path="opts.asyncDebounceMs" type="number" optional>
+    Default debounce time in milliseconds for async validation
+  </ParamField>
+
+  <ParamField path="opts.asyncAlways" type="boolean" optional>
+    If true, always run async validation even when sync validation fails
+  </ParamField>
+
+  <ParamField path="opts.validators" type="FieldValidators<TParentData, TName, TData>" optional>
+    Field-level validators
+
+    <ParamField path="opts.validators.onMount" type="FieldValidateOrFn<TParentData, TName, TData>" optional>
+      Validator that runs when the field mounts
+    </ParamField>
+
+    <ParamField path="opts.validators.onChange" type="FieldValidateOrFn<TParentData, TName, TData>" optional>
+      Validator that runs when the field value changes
+
+      ```tsx
+      onChange: ({ value }) => 
+        value.length < 3 ? 'Must be at least 3 characters' : undefined
+      ```
+    </ParamField>
+
+    <ParamField path="opts.validators.onChangeAsync" type="FieldAsyncValidateOrFn<TParentData, TName, TData>" optional>
+      Async validator that runs when the field value changes
+
+      ```tsx
+      onChangeAsync: async ({ value }) => {
+        const exists = await checkUsername(value)
+        return exists ? 'Username taken' : undefined
+      }
+      ```
+    </ParamField>
+
+    <ParamField path="opts.validators.onChangeAsyncDebounceMs" type="number" optional>
+      Debounce time for onChange async validation
+    </ParamField>
+
+    <ParamField path="opts.validators.onChangeListenTo" type="DeepKeys<TParentData>[]" optional>
+      Array of field names that should trigger this field's onChange validation
+    </ParamField>
+
+    <ParamField path="opts.validators.onBlur" type="FieldValidateOrFn<TParentData, TName, TData>" optional>
+      Validator that runs when the field loses focus
+    </ParamField>
+
+    <ParamField path="opts.validators.onBlurAsync" type="FieldAsyncValidateOrFn<TParentData, TName, TData>" optional>
+      Async validator that runs when the field loses focus
+    </ParamField>
+
+    <ParamField path="opts.validators.onBlurAsyncDebounceMs" type="number" optional>
+      Debounce time for onBlur async validation
+    </ParamField>
+
+    <ParamField path="opts.validators.onBlurListenTo" type="DeepKeys<TParentData>[]" optional>
+      Array of field names that should trigger this field's onBlur validation
+    </ParamField>
+
+    <ParamField path="opts.validators.onSubmit" type="FieldValidateOrFn<TParentData, TName, TData>" optional>
+      Validator that runs on form submission
+    </ParamField>
+
+    <ParamField path="opts.validators.onSubmitAsync" type="FieldAsyncValidateOrFn<TParentData, TName, TData>" optional>
+      Async validator that runs on form submission
+    </ParamField>
+  </ParamField>
+
+  <ParamField path="opts.listeners" type="FieldListeners<TParentData, TName, TData>" optional>
+    Field-level event listeners
+
+    <ParamField path="opts.listeners.onChange" type="(props: { value, fieldApi }) => void" optional>
+      Called when field value changes
+    </ParamField>
+
+    <ParamField path="opts.listeners.onBlur" type="(props: { value, fieldApi }) => void" optional>
+      Called when field loses focus
+    </ParamField>
+
+    <ParamField path="opts.listeners.onMount" type="(props: { value, fieldApi }) => void" optional>
+      Called when field mounts
+    </ParamField>
+  </ParamField>
+</ParamField>
+
+## Return Value
+
+<ResponseField name="field" type="FieldApi<TParentData, TName, TData>">
+  The field API instance
+
+  <ResponseField name="name" type="TName">
+    The field name
+  </ResponseField>
+
+  <ResponseField name="form" type="FormApi<TParentData>">
+    Reference to the parent form API
+  </ResponseField>
+
+  <ResponseField name="state" type="FieldState<TParentData, TName, TData>">
+    Current field state
+
+    <ResponseField name="value" type="TData">
+      Current field value
+    </ResponseField>
+
+    <ResponseField name="meta" type="FieldMeta">
+      Field metadata
+
+      <ResponseField name="isTouched" type="boolean">
+        True if field has been touched
+      </ResponseField>
+
+      <ResponseField name="isBlurred" type="boolean">
+        True if field has been blurred
+      </ResponseField>
+
+      <ResponseField name="isDirty" type="boolean">
+        True if field value has been modified
+      </ResponseField>
+
+      <ResponseField name="isPristine" type="boolean">
+        True if field value has not been modified
+      </ResponseField>
+
+      <ResponseField name="isValidating" type="boolean">
+        True if field is currently validating
+      </ResponseField>
+
+      <ResponseField name="isValid" type="boolean">
+        True if field has no validation errors
+      </ResponseField>
+
+      <ResponseField name="errors" type="ValidationError[]">
+        Array of validation errors
+      </ResponseField>
+
+      <ResponseField name="errorMap" type="ValidationErrorMap">
+        Map of errors by validation event
+      </ResponseField>
+    </ResponseField>
+  </ResponseField>
+
+  <ResponseField name="handleChange" type="(updater: Updater<TData>) => void">
+    Update the field value. Accepts a new value or updater function.
+
+    ```tsx
+    field.handleChange('new value')
+    field.handleChange((prev) => prev + 1)
+    ```
+  </ResponseField>
+
+  <ResponseField name="handleBlur" type="() => void">
+    Mark the field as blurred and trigger onBlur validation
+  </ResponseField>
+
+  <ResponseField name="getValue" type="() => TData">
+    Get the current field value
+  </ResponseField>
+
+  <ResponseField name="setValue" type="(updater: Updater<TData>, opts?: UpdateMetaOptions) => void">
+    Set the field value programmatically
+  </ResponseField>
+
+  <ResponseField name="getMeta" type="() => FieldMeta">
+    Get the current field metadata
+  </ResponseField>
+
+  <ResponseField name="setMeta" type="(updater: Updater<FieldMeta>) => void">
+    Set the field metadata programmatically
+  </ResponseField>
+
+  <ResponseField name="pushValue" type="(value: TData extends any[] ? TData[number] : never, opts?: UpdateMetaOptions) => void">
+    Push a value to the end of an array field
+  </ResponseField>
+
+  <ResponseField name="insertValue" type="(index: number, value: TData extends any[] ? TData[number] : never, opts?: UpdateMetaOptions) => void">
+    Insert a value into an array field at a specific index
+  </ResponseField>
+
+  <ResponseField name="removeValue" type="(index: number, opts?: UpdateMetaOptions) => void">
+    Remove a value from an array field
+  </ResponseField>
+
+  <ResponseField name="swapValues" type="(index1: number, index2: number) => void">
+    Swap two values in an array field
+  </ResponseField>
+
+  <ResponseField name="replaceValue" type="(index: number, value: TData extends any[] ? TData[number] : never, opts?: UpdateMetaOptions) => void">
+    Replace a value in an array field
+  </ResponseField>
+
+  <ResponseField name="validate" type="(cause: ValidationCause) => ValidationError[]">
+    Manually trigger validation for this field
+  </ResponseField>
+</ResponseField>
+
+## Usage
+
+### Basic Field
+
+```tsx
+import { useForm, useField } from '@tanstack/react-form'
+
+function MyComponent() {
+  const form = useForm({
+    defaultValues: {
+      firstName: '',
+    },
+  })
+
+  const firstNameField = useField({
+    form,
+    name: 'firstName',
+  })
+
+  return (
+    <input
+      value={firstNameField.state.value}
+      onChange={(e) => firstNameField.handleChange(e.target.value)}
+      onBlur={firstNameField.handleBlur}
+    />
+  )
+}
+```
+
+### Field with Validation
+
+```tsx
+import { useForm, useField } from '@tanstack/react-form'
+
+function EmailField() {
+  const form = useForm({
+    defaultValues: {
+      email: '',
+    },
+  })
+
+  const emailField = useField({
+    form,
+    name: 'email',
+    validators: {
+      onChange: ({ value }) => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        return !emailRegex.test(value) ? 'Invalid email address' : undefined
+      },
+      onChangeAsyncDebounceMs: 500,
+      onChangeAsync: async ({ value }) => {
+        const exists = await checkEmailExists(value)
+        return exists ? 'Email already registered' : undefined
+      },
+    },
+  })
+
+  return (
+    <div>
+      <input
+        type="email"
+        value={emailField.state.value}
+        onChange={(e) => emailField.handleChange(e.target.value)}
+        onBlur={emailField.handleBlur}
+      />
+      {emailField.state.meta.errors && (
+        <span>{emailField.state.meta.errors.join(', ')}</span>
+      )}
+      {emailField.state.meta.isValidating && <span>Validating...</span>}
+    </div>
+  )
+}
+```
+
+### Array Field
+
+```tsx
+import { useForm, useField } from '@tanstack/react-form'
+
+function TodoList() {
+  const form = useForm({
+    defaultValues: {
+      todos: [] as string[],
+    },
+  })
+
+  const todosField = useField({
+    form,
+    name: 'todos',
+    mode: 'array', // Only re-render when array length changes
+  })
+
+  return (
+    <div>
+      {todosField.state.value.map((_, i) => (
+        <div key={i}>
+          <form.Field
+            name={`todos[${i}]`}
+            children={(field) => (
+              <input
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+              />
+            )}
+          />
+          <button onClick={() => todosField.removeValue(i)}>Remove</button>
+        </div>
+      ))}
+      <button onClick={() => todosField.pushValue('')}>Add Todo</button>
+    </div>
+  )
+}
+```
+
+### Nested Fields
+
+```tsx
+import { useForm, useField } from '@tanstack/react-form'
+
+interface User {
+  profile: {
+    firstName: string
+    lastName: string
+  }
+}
+
+function UserForm() {
+  const form = useForm<User>({
+    defaultValues: {
+      profile: {
+        firstName: '',
+        lastName: '',
+      },
+    },
+  })
+
+  const firstNameField = useField({
+    form,
+    name: 'profile.firstName',
+  })
+
+  return (
+    <input
+      value={firstNameField.state.value}
+      onChange={(e) => firstNameField.handleChange(e.target.value)}
+    />
+  )
+}
+```
+
+### TypeScript
+
+```tsx
+import { useForm, useField } from '@tanstack/react-form'
+
+interface FormData {
+  email: string
+  age: number
+}
+
+function MyComponent() {
+  const form = useForm<FormData>({
+    defaultValues: {
+      email: '',
+      age: 0,
+    },
+  })
+
+  // Type-safe field names
+  const emailField = useField({
+    form,
+    name: 'email', // Type checked!
+    validators: {
+      onChange: ({ value }) => {
+        // value is typed as string
+        return value.includes('@') ? undefined : 'Invalid email'
+      },
+    },
+  })
+
+  return (
+    <input
+      type="email"
+      value={emailField.state.value} // Typed as string
+      onChange={(e) => emailField.handleChange(e.target.value)}
+    />
+  )
+}
+```
