@@ -1,0 +1,239 @@
+---
+title: createForm
+description: API reference for the createForm function in TanStack Form for Svelte
+---
+
+## Import
+
+```typescript
+import { createForm } from '@tanstack/svelte-form'
+```
+
+## Type
+
+```typescript
+function createForm<TFormData>(
+  opts?: FormOptions<TFormData>
+): SvelteFormApi<TFormData>
+```
+
+## Parameters
+
+<ParamField path="opts" type="FormOptions<TFormData>" required={false}>
+  Configuration options for the form. See [FormOptions](/api/core/form-options) for details.
+  
+  <Expandable title="properties">
+    <ParamField path="defaultValues" type="TFormData">
+      Initial values for the form fields
+    </ParamField>
+    
+    <ParamField path="onSubmit" type="(values: { value: TFormData }) => void | Promise<void>">
+      Handler called when the form is submitted
+    </ParamField>
+    
+    <ParamField path="validators" type="FormValidators<TFormData>">
+      Form-level validation functions
+    </ParamField>
+    
+    <ParamField path="defaultState" type="Partial<FormState<TFormData>>">
+      Initial state for the form
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Returns
+
+<ResponseField name="SvelteFormApi" type="SvelteFormApi<TFormData>">
+  The form API object with the following properties and methods:
+  
+  <Expandable title="properties">
+    <ResponseField name="Field" type="FieldComponent">
+      Svelte component for creating form fields
+    </ResponseField>
+    
+    <ResponseField name="createField" type="CreateField">
+      Function to create field instances programmatically
+    </ResponseField>
+    
+    <ResponseField name="useStore" type="(selector?) => { current: TSelected }">
+      Subscribe to form state with optional selector
+    </ResponseField>
+    
+    <ResponseField name="Subscribe" type="Component">
+      Component for subscribing to form state
+    </ResponseField>
+    
+    <ResponseField name="state" type="FormState<TFormData>">
+      Current form state (reactive)
+    </ResponseField>
+    
+    <ResponseField name="handleSubmit" type="() => Promise<void>">
+      Method to handle form submission
+    </ResponseField>
+    
+    <ResponseField name="reset" type="() => void">
+      Reset the form to its initial state
+    </ResponseField>
+    
+    <ResponseField name="getFieldValue" type="<TField>(name: TField) => TValue">
+      Get the current value of a field
+    </ResponseField>
+    
+    <ResponseField name="setFieldValue" type="<TField>(name: TField, value: TValue) => void">
+      Set the value of a field
+    </ResponseField>
+    
+    <ResponseField name="validateAllFields" type="(cause: ValidationCause) => Promise<void>">
+      Validate all fields in the form
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Usage
+
+### Basic Example
+
+```svelte
+<script lang="ts">
+  import { createForm } from '@tanstack/svelte-form'
+  
+  const form = createForm({
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+      age: 0,
+    },
+    onSubmit: async ({ value }) => {
+      console.log('Form submitted:', value)
+    },
+  })
+</script>
+
+<form
+  onsubmit={(e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    form.handleSubmit()
+  }}
+>
+  <form.Field name="firstName">
+    {#snippet children({ field, state })}
+      <input
+        value={state.value}
+        onblur={field.handleBlur}
+        oninput={(e) => field.handleChange(e.currentTarget.value)}
+      />
+    {/snippet}
+  </form.Field>
+  
+  <button type="submit">Submit</button>
+</form>
+```
+
+### With Validation
+
+```svelte
+<script lang="ts">
+  import { createForm } from '@tanstack/svelte-form'
+  
+  const form = createForm({
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+    onSubmit: async ({ value }) => {
+      // Handle login
+      console.log(value)
+    },
+  })
+</script>
+
+<form
+  onsubmit={(e) => {
+    e.preventDefault()
+    form.handleSubmit()
+  }}
+>
+  <form.Field
+    name="email"
+    validators={{
+      onChange: ({ value }) => {
+        if (!value) return 'Email is required'
+        if (!value.includes('@')) return 'Invalid email'
+        return undefined
+      },
+    }}
+  >
+    {#snippet children({ field, state })}
+      <input
+        type="email"
+        value={state.value}
+        onblur={field.handleBlur}
+        oninput={(e) => field.handleChange(e.currentTarget.value)}
+      />
+      {#if state.meta.errors.length > 0}
+        <em>{state.meta.errors[0]}</em>
+      {/if}
+    {/snippet}
+  </form.Field>
+  
+  <form.Subscribe>
+    {#snippet children(state)}
+      <button type="submit" disabled={!state.canSubmit}>
+        {state.isSubmitting ? 'Submitting...' : 'Submit'}
+      </button>
+    {/snippet}
+  </form.Subscribe>
+</form>
+```
+
+### Subscribing to State
+
+```svelte
+<script lang="ts">
+  import { createForm } from '@tanstack/svelte-form'
+  
+  const form = createForm({
+    defaultValues: { name: '' },
+    onSubmit: async ({ value }) => console.log(value),
+  })
+  
+  // Subscribe to specific state
+  const canSubmit = form.useStore((state) => state.canSubmit)
+</script>
+
+<div>
+  <p>Can Submit: {canSubmit.current}</p>
+</div>
+```
+
+## TypeScript
+
+The form is fully typed based on your `defaultValues`:
+
+```typescript
+interface FormData {
+  username: string
+  email: string
+  age: number
+}
+
+const form = createForm<FormData>({
+  defaultValues: {
+    username: '',
+    email: '',
+    age: 0,
+  },
+  onSubmit: async ({ value }) => {
+    // value is typed as FormData
+    console.log(value.username) // ✓ TypeScript knows this is a string
+  },
+})
+```
+
+## See Also
+
+- [Field Component](/api/svelte/field-component) - Create form fields
+- [FormOptions](/api/core/form-options) - Form configuration options
+- [FormApi](/api/core/form-api) - Core form API
+- [Quick Start](/svelte/quick-start) - Getting started with Svelte

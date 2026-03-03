@@ -1,0 +1,301 @@
+---
+title: Field Component
+description: API reference for the Field component in TanStack Form for Svelte
+---
+
+## Import
+
+```typescript
+import { Field } from '@tanstack/svelte-form'
+// or
+const form = createForm(...)
+// use form.Field
+```
+
+## Props
+
+<ParamField path="name" type="string" required>
+  The name of the field. Must match a key in your form's data type.
+</ParamField>
+
+<ParamField path="validators" type="FieldValidators" required={false}>
+  Validation functions for the field.
+  
+  <Expandable title="properties">
+    <ParamField path="onChange" type="(props: { value: TValue }) => ValidationError">
+      Runs on every change
+    </ParamField>
+    
+    <ParamField path="onChangeAsync" type="(props: { value: TValue, signal: AbortSignal }) => Promise<ValidationError>">
+      Async validation on change
+    </ParamField>
+    
+    <ParamField path="onChangeAsyncDebounceMs" type="number">
+      Debounce time for async onChange validation
+    </ParamField>
+    
+    <ParamField path="onBlur" type="(props: { value: TValue }) => ValidationError">
+      Runs when field loses focus
+    </ParamField>
+    
+    <ParamField path="onMount" type="(props: { value: TValue }) => ValidationError">
+      Runs when field is mounted
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="defaultValue" type="TValue" required={false}>
+  Default value for the field (overrides form defaultValues)
+</ParamField>
+
+<ParamField path="children" type="Snippet" required>
+  Svelte snippet that receives field and state as parameters
+</ParamField>
+
+## Snippet Parameters
+
+The `children` snippet receives an object with:
+
+<ResponseField name="field" type="FieldApi">
+  The field API instance
+  
+  <Expandable title="methods">
+    <ResponseField name="handleChange" type="(value: TValue) => void">
+      Update the field value
+    </ResponseField>
+    
+    <ResponseField name="handleBlur" type="() => void">
+      Mark field as touched/blurred
+    </ResponseField>
+    
+    <ResponseField name="getValue" type="() => TValue">
+      Get current field value
+    </ResponseField>
+    
+    <ResponseField name="setValue" type="(value: TValue) => void">
+      Set field value
+    </ResponseField>
+    
+    <ResponseField name="pushValue" type="(value: TValue extends Array ? TValue[0] : never) => void">
+      Add item to array field
+    </ResponseField>
+    
+    <ResponseField name="removeValue" type="(index: number) => void">
+      Remove item from array field
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="state" type="FieldState">
+  The current field state
+  
+  <Expandable title="properties">
+    <ResponseField name="value" type="TValue">
+      Current field value
+    </ResponseField>
+    
+    <ResponseField name="meta" type="FieldMeta">
+      Field metadata (errors, touched, dirty, etc.)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Usage
+
+### Basic Field
+
+```svelte
+<script lang="ts">
+  import { createForm } from '@tanstack/svelte-form'
+  
+  const form = createForm({
+    defaultValues: {
+      name: '',
+    },
+    onSubmit: async ({ value }) => console.log(value),
+  })
+</script>
+
+<form.Field name="name">
+  {#snippet children({ field, state })}
+    <label>
+      Name:
+      <input
+        value={state.value}
+        oninput={(e) => field.handleChange(e.currentTarget.value)}
+        onblur={field.handleBlur}
+      />
+    </label>
+  {/snippet}
+</form.Field>
+```
+
+### With Validation
+
+```svelte
+<form.Field
+  name="email"
+  validators={{
+    onChange: ({ value }) => {
+      if (!value) return 'Email is required'
+      if (!value.includes('@')) return 'Invalid email address'
+      return undefined
+    },
+  }}
+>
+  {#snippet children({ field, state })}
+    <div>
+      <input
+        type="email"
+        value={state.value}
+        oninput={(e) => field.handleChange(e.currentTarget.value)}
+        onblur={field.handleBlur}
+        placeholder="Enter your email"
+      />
+      {#if state.meta.isTouched && state.meta.errors.length > 0}
+        <em style="color: red;">{state.meta.errors[0]}</em>
+      {/if}
+    </div>
+  {/snippet}
+</form.Field>
+```
+
+### Async Validation
+
+```svelte
+<form.Field
+  name="username"
+  validators={{
+    onChangeAsyncDebounceMs: 500,
+    onChangeAsync: async ({ value, signal }) => {
+      // Check if username is available
+      const response = await fetch(`/api/check-username?name=${value}`, {
+        signal,
+      })
+      const available = await response.json()
+      return available ? undefined : 'Username is taken'
+    },
+  }}
+>
+  {#snippet children({ field, state })}
+    <div>
+      <input
+        value={state.value}
+        oninput={(e) => field.handleChange(e.currentTarget.value)}
+      />
+      {#if state.meta.isValidating}
+        <span>Checking...</span>
+      {/if}
+      {#if state.meta.errors.length > 0}
+        <em>{state.meta.errors[0]}</em>
+      {/if}
+    </div>
+  {/snippet}
+</form.Field>
+```
+
+### Array Fields
+
+```svelte
+<script lang="ts">
+  const form = createForm({
+    defaultValues: {
+      items: [''],
+    },
+    onSubmit: async ({ value }) => console.log(value),
+  })
+</script>
+
+<form.Field name="items" mode="array">
+  {#snippet children({ field, state })}
+    <div>
+      {#each state.value as item, i (i)}
+        <form.Field name={`items[${i}]`}>
+          {#snippet children({ field: itemField, state: itemState })}
+            <input
+              value={itemState.value}
+              oninput={(e) => itemField.handleChange(e.currentTarget.value)}
+            />
+            <button type="button" onclick={() => field.removeValue(i)}>
+              Remove
+            </button>
+          {/snippet}
+        </form.Field>
+      {/each}
+      
+      <button type="button" onclick={() => field.pushValue('')}>
+        Add Item
+      </button>
+    </div>
+  {/snippet}
+</form.Field>
+```
+
+### Standalone Field
+
+You can use the Field component from the package directly:
+
+```svelte
+<script lang="ts">
+  import { createForm, Field } from '@tanstack/svelte-form'
+  
+  const form = createForm({
+    defaultValues: { name: '' },
+    onSubmit: async ({ value }) => console.log(value),
+  })
+</script>
+
+<Field form={form} name="name">
+  {#snippet children({ field, state })}
+    <input
+      value={state.value}
+      oninput={(e) => field.handleChange(e.currentTarget.value)}
+    />
+  {/snippet}
+</Field>
+```
+
+## TypeScript
+
+The Field component is fully typed:
+
+```typescript
+interface FormData {
+  name: string
+  age: number
+  tags: string[]
+}
+
+const form = createForm<FormData>({
+  defaultValues: {
+    name: '',
+    age: 0,
+    tags: [],
+  },
+  onSubmit: async ({ value }) => console.log(value),
+})
+
+// TypeScript knows 'name' is a string
+<form.Field name="name">
+  {#snippet children({ field, state })}
+    <!-- state.value is typed as string -->
+    <input value={state.value} />
+  {/snippet}
+</form.Field>
+
+// TypeScript knows 'tags' is an array
+<form.Field name="tags" mode="array">
+  {#snippet children({ field, state })}
+    <!-- state.value is typed as string[] -->
+    <!-- field.pushValue expects a string -->
+    <button onclick={() => field.pushValue('')}>Add</button>
+  {/snippet}
+</form.Field>
+```
+
+## See Also
+
+- [createForm](/api/svelte/create-form) - Create form instances
+- [FieldApi](/api/core/field-api) - Core field API
+- [FieldOptions](/api/core/field-options) - Field configuration
+- [Arrays Guide](/svelte/arrays) - Working with array fields
