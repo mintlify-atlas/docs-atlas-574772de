@@ -1,0 +1,184 @@
+{
+  "projectType": "framework",
+  "projectName": "TanStack Form",
+  "projectDescription": "Headless, performant, and type-safe form state management for TS/JS, React, Vue, Angular, Solid, and Lit.",
+  "theme": "mint",
+  "primaryColor": "#00c7b7",
+  "lightColor": "#00e8d4",
+  "darkColor": "#00a89a",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/overview",
+              "concepts/philosophy",
+              "concepts/typescript"
+            ]
+          },
+          {
+            "group": "React",
+            "pages": [
+              "react/quick-start",
+              "react/basic-concepts",
+              "react/validation",
+              "react/arrays",
+              "react/form-composition"
+            ]
+          },
+          {
+            "group": "Vue",
+            "pages": [
+              "vue/quick-start",
+              "vue/basic-concepts",
+              "vue/validation",
+              "vue/arrays"
+            ]
+          },
+          {
+            "group": "Angular",
+            "pages": [
+              "angular/quick-start",
+              "angular/basic-concepts",
+              "angular/validation",
+              "angular/arrays"
+            ]
+          },
+          {
+            "group": "Solid",
+            "pages": [
+              "solid/quick-start",
+              "solid/basic-concepts",
+              "solid/validation",
+              "solid/arrays"
+            ]
+          },
+          {
+            "group": "Lit",
+            "pages": [
+              "lit/quick-start",
+              "lit/basic-concepts",
+              "lit/validation",
+              "lit/arrays"
+            ]
+          },
+          {
+            "group": "Svelte",
+            "pages": [
+              "svelte/quick-start",
+              "svelte/basic-concepts",
+              "svelte/validation",
+              "svelte/arrays"
+            ]
+          },
+          {
+            "group": "Advanced Guides",
+            "pages": [
+              "guides/dynamic-validation",
+              "guides/async-initial-values",
+              "guides/linked-fields",
+              "guides/custom-errors",
+              "guides/submission-handling",
+              "guides/ui-libraries",
+              "guides/ssr",
+              "guides/debugging"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core",
+            "pages": [
+              "api/core/form-api",
+              "api/core/field-api",
+              "api/core/form-options",
+              "api/core/field-options",
+              "api/core/validators"
+            ]
+          },
+          {
+            "group": "React",
+            "pages": [
+              "api/react/use-form",
+              "api/react/use-field",
+              "api/react/field-component"
+            ]
+          },
+          {
+            "group": "Vue",
+            "pages": [
+              "api/vue/use-form",
+              "api/vue/use-field",
+              "api/vue/field-component"
+            ]
+          },
+          {
+            "group": "Angular",
+            "pages": [
+              "api/angular/inject-form",
+              "api/angular/tanstack-field"
+            ]
+          },
+          {
+            "group": "Solid",
+            "pages": [
+              "api/solid/create-form",
+              "api/solid/create-field",
+              "api/solid/field-component"
+            ]
+          },
+          {
+            "group": "Lit",
+            "pages": [
+              "api/lit/form-controller"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Framework-agnostic core with adapters for React, Vue, Angular, Solid, Lit, and Svelte",
+    "First-class TypeScript support with fully inferred types for nested fields",
+    "Headless UI components for maximum flexibility",
+    "Reactive form state management with granular subscriptions",
+    "Built-in validation with sync/async support and debouncing",
+    "Schema-based validation with Zod, Yup, Valibot, and Standard Schema support",
+    "Array and nested object field management",
+    "SSR integration for Next.js, TanStack Start, and Remix",
+    "DevTools support for debugging",
+    "Form composition for large, complex forms"
+  ],
+  "publicApiSurface": [
+    "FormApi",
+    "FieldApi",
+    "FieldGroupApi",
+    "useForm / createForm / injectForm",
+    "useField / createField / injectField",
+    "Field component",
+    "formOptions",
+    "mergeForm",
+    "standardSchemaValidator",
+    "FormValidators",
+    "FieldValidators",
+    "DeepKeys",
+    "DeepValue",
+    "FieldInfo",
+    "FieldMeta",
+    "FormState"
+  ]
+}
